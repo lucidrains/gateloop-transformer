@@ -1,6 +1,8 @@
-## GateLoop - Pytorch (wip)
+## GateLoop Transformer (wip)
 
-Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transformer in Pytorch, to be tested on Enwik8 character level modeling
+Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transformer in both Jax and Pytorch, to be tested on Enwik8 character level modeling.
+
+Jax version will be done with the <a href="https://github.com/patrick-kidger/equinox">Equinox</a> framework
 
 ## Citations
 
