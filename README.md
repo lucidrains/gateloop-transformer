@@ -1,6 +1,6 @@
 ## GateLoop - Pytorch (wip)
 
-Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> in Pytorch
+Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transformer in Pytorch, to be tested on Enwik8 character level modeling
 
 ## Citations
 
