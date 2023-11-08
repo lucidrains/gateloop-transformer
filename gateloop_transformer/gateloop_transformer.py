@@ -6,6 +6,8 @@ import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
+from rotary_embedding_torch import RotaryEmbedding
+
 from gateloop_transformer.associative_scan import associative_scan
 
 # helpers
