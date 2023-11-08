@@ -4,9 +4,11 @@
 # will be adapted to test out GateLoop on a small scale https://arxiv.org/abs/2311.01927
 
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 from functools import partial
-from optree import tree_flatten, tree_unflatten
+
+from typing import Tuple
 
 def safe_map(f, *args):
     args = list(map(list, args))
@@ -22,30 +24,18 @@ def slice_along_axis(start, end, stride=None, axis=0):
 
 def associative_scan(
     operator,
-    elems,
+    elems: Tuple[Tensor, Tensor],
     axis = 0
 ):
     if not callable(operator):
         raise TypeError("lax.associative_scan: fn argument should be callable.")
 
-    elems_flat, tree = tree_flatten(elems)
+    num_elems = int(elems[0].shape[axis])
 
-    def combine(a_flat, b_flat):
-        # Lower `fn` to operate on flattened sequences of elems.
-        a = tree_unflatten(tree, a_flat)
-        b = tree_unflatten(tree, b_flat)
-        c = operator(a, b)
-        c_flat, _ = tree_flatten(c)
-        return c_flat
-
-    assert axis >= 0 or axis < elems_flat[0].ndim, "Axis should be within bounds of input"
-
-    num_elems = int(elems_flat[0].shape[axis])
-
-    if not all(int(elem.shape[axis]) == num_elems for elem in elems_flat[1:]):
+    if not all(int(elem.shape[axis]) == num_elems for elem in elems[1:]):
         raise ValueError('Array inputs to associative_scan must have the same '
                          'first dimension. (saw: {})'
-                         .format([elem.shape for elem in elems_flat]))
+                         .format([elem.shape for elem in elems]))
 
     def _scan(elems):
         """Perform scan on `elems`."""
@@ -56,7 +46,7 @@ def associative_scan(
 
         # Combine adjacent pairs of elements.
 
-        reduced_elems = combine(
+        reduced_elems = operator(
           [elem[slice_along_axis(0, -1, stride=2, axis=axis)] for elem in elems],
           [elem[slice_along_axis(1, None, stride=2, axis=axis)] for elem in elems])
 
@@ -65,11 +55,11 @@ def associative_scan(
         odd_elems = _scan(reduced_elems)
 
         if num_elems % 2 == 0:
-            even_elems = combine(
+            even_elems = operator(
                 [e[slice_along_axis(0, -1, axis=axis)] for e in odd_elems],
                 [e[slice_along_axis(2, None, stride=2, axis=axis)] for e in elems])
         else:
-            even_elems = combine(
+            even_elems = operator(
                 odd_elems,
                 [e[slice_along_axis(2, None, stride=2, axis=axis)] for e in elems])
 
@@ -85,9 +75,9 @@ def associative_scan(
 
         return list(safe_map(partial(_interleave, axis=axis), even_elems, odd_elems))
 
-    scans = _scan(elems_flat)
+    scans = _scan(elems)
 
-    return tree_unflatten(tree, scans)
+    return scans
 
 def _interleave(a, b, axis):
     # https://stackoverflow.com/questions/60869537/how-can-i-interleave-5-pytorch-tensors
