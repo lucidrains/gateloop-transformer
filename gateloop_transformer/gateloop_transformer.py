@@ -70,6 +70,9 @@ class CausalFullAttention(Module):
                 Rearrange('b n (h d) -> b h n d', h = heads)
             )
 
+            nn.init.zero_(self.to_a.weight)
+            nn.init.constant_(self.to_a.bias, 10)
+
         self.to_out = nn.Sequential(
             Rearrange('b h n d -> b n (h d)'),
             nn.Linear(dim_inner, dim)
