@@ -6,8 +6,6 @@ Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transf
 
 Jax version will be done with the <a href="https://github.com/patrick-kidger/equinox">Equinox</a> framework
 
-If you are working in this research niche and want to chat frankly about the paper, join <a href="https://discord.gg/BM34spd7">here</a>
-
 ## Citations
 
 ```bibtex
