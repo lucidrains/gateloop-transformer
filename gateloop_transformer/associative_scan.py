@@ -12,6 +12,8 @@ from functools import partial
 
 from typing import Tuple, Callable
 
+# helper functions
+
 def safe_map(f, *args):
     args = list(map(list, args))
     n = len(args[0])
@@ -21,6 +23,11 @@ def safe_map(f, *args):
 
 def slice_along_axis(start, end, stride=None, axis=0):
     return (slice(None),) * axis + (slice(start, end, stride),)
+
+def pad_at_dim(t, pad, dim = -1, value = 0.):
+    dims_from_right = (- dim - 1) if dim < 0 else (t.ndim - dim - 1)
+    zeros = ((0, 0) * dims_from_right)
+    return F.pad(t, (*zeros, *pad), value = value)
 
 # Pytorch impl. of jax.lax.associative_scan
 
@@ -80,10 +87,11 @@ def associative_scan(
 
 def _interleave(a, b, axis):
     # https://stackoverflow.com/questions/60869537/how-can-i-interleave-5-pytorch-tensors
+
+    output_axis_len = a.shape[axis] + b.shape[axis]
+
     if b_trunc := (a.shape[axis] == b.shape[axis] + 1):
-        pad = [0, 0] * b.ndim
-        pad[(b.ndim-axis-1)*2+1] = 1 # +1=always end of dim, pad-order is reversed so start is at end
-        b = F.pad(b, pad)
+        b = pad_at_dim(b, (0, 1), dim = 1)
 
     stacked = torch.stack([a, b], dim=axis+1)
     interleaved = torch.flatten(stacked, start_dim=axis, end_dim=axis+1)
@@ -92,4 +100,4 @@ def _interleave(a, b, axis):
         return interleaved
 
     # TODO: find torch alternative for slice_along axis for torch.jit.script to work
-    return interleaved[slice_along_axis(0, b.shape[axis]+a.shape[axis]-1, axis=axis)]
+    return interleaved[slice_along_axis(0, output_axis_len, axis=axis)]
