@@ -150,7 +150,8 @@ class GateLoopedAttention(Module):
     def __init__(
         self,
         dim,
-        dim_inner = None
+        dim_inner = None,
+        frac_gradient_state_transition = 0.5
     ):
         super().__init__()
         dim_inner = default(dim_inner, dim)
@@ -158,14 +159,23 @@ class GateLoopedAttention(Module):
         self.norm = RMSNorm(dim)
 
         self.to_qkv = nn.Linear(dim, dim_inner * 3)
-        self.to_a = nn.Linear(dim, dim_inner, dtype = torch.complex64)
+
+        self.to_a = nn.Sequential(
+            nn.Linear(dim, dim_inner * 2),
+            Rearrange('... (d c) -> ... d c', c = 2)
+        )
 
     def forward(self, x):
+        frac_gradient = self.self.frac_gradient_state_transition
+
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
 
-        a = torch.to_a(x + 0.j)
+        a = torch.to_a(x)
+        a = a * frac_gradient + a.detach() * (1 - frac_gradient)
+
+        a = torch.view_as_complex(a)
 
         out = gate_loop_operator(q, k, v, a)
 
