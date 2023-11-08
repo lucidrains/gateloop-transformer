@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Module
+from torch.nn import Module, ModuleList
 from torch import nn, einsum, Tensor
 import torch.nn.functional as F
 
@@ -22,6 +22,17 @@ class RMSNorm(Module):
     def forward(self, x):
         return F.normalize(x, dim = -1) * self.scale * self.gamma
 
+# feedforward
+
+def FeedForward(dim, mult = 4):
+    dim_inner = dim * mult
+    return nn.Sequential(
+        RMSNorm(dim),
+        nn.Linear(dim, dim_inner),
+        nn.GELU(),
+        nn.Linear(dim_inner, dim)
+    )
+
 # attention
 
 class CausalFullAttention(Module):
@@ -32,7 +43,7 @@ class CausalFullAttention(Module):
         dim_head = 64,
         heads = 8,
         data_dependent_rel_pos = False,
-        frac_gradient_data_dependent_rel_pos = 0.1
+        frac_gradient_data_dependent_rel_pos = 0.5
     ):
         super().__init__()
         dim_inner = dim_head * heads
@@ -73,7 +84,7 @@ class CausalFullAttention(Module):
             a = self.to_a(x)
 
             # allow for data dependent relative position projection to change more slowly
-            # alteernative to using a lowered learning rate mentioned in paper
+            # alternative to using a lowered learning rate mentioned in paper
 
             a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
@@ -95,9 +106,51 @@ class CausalFullAttention(Module):
 
 # main class
 
-class GateLoop(Module):
+class Transformer(Module):
     def __init__(
-        self
+        self,
+        dim,
+        *,
+        num_tokens,
+        depth,
+        dim_head = 64,
+        heads = 8,
+        ff_mult = 4,
+        data_dependent_rel_pos = False
     ):
         super().__init__()
-        raise NotImplementedError
+
+        self.token_emb = nn.Embedding(num_tokens, dim)
+
+        layers = ModuleList([])
+        for _ in range(depth):
+            layers.append(ModuleList([
+                CausalFullAttention(
+                    dim = dim,
+                    dim_head = dim_head,
+                    heads = heads,
+                    data_dependent_rel_pos = data_dependent_rel_pos
+                ),
+                FeedForward(
+                    dim = dim,
+                    mult = ff_mult
+                )
+            ]))
+
+        self.layers = ModuleList(layers)
+
+        self.to_logits = nn.Sequential(
+            RMSNorm(dim),
+            nn.Linear(dim, num_tokens, bias = False)
+        )
+
+    def forward(self, x):
+        x = self.token_emb(x)
+
+        for attn, ff in self.layers:
+            x = attn(x) + x
+            x = ff(x) + x
+
+        logits = self.to_logits(x)
+
+        return logits
