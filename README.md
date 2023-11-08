@@ -21,7 +21,8 @@ from gateloop_transformer import Transformer
 model = Transformer(
     num_tokens = 256,
     dim = 624,
-    depth = 6
+    depth = 6,
+    use_gate_looped_attn = True
 )
 
 ids = torch.randint(0, 256, (1, 1024))
