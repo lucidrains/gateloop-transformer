@@ -1,3 +1,5 @@
+<img src="./gateloop.png" width="450px"></img>
+
 ## GateLoop Transformer (wip)
 
 Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transformer in both Jax and Pytorch, to be tested on Enwik8 character level modeling.
