@@ -6,6 +6,28 @@ Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transf
 
 Jax version will be done with the <a href="https://github.com/patrick-kidger/equinox">Equinox</a> framework
 
+## Install
+
+```bash
+$ pip install gateloop-transformr
+```
+
+## Usage
+
+```python
+import torch
+from gateloop_transformer import Transformer
+
+model = Transformer(
+    num_tokens = 256,
+    dim = 624,
+    depth = 6
+)
+
+ids = torch.randint(0, 256, (1, 1024))
+logits = model(ids) # (1, 1024, 256)
+```
+
 ## Citations
 
 ```bibtex

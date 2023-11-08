@@ -197,23 +197,36 @@ class Transformer(Module):
         dim_head = 64,
         heads = 8,
         ff_mult = 4,
+        use_gate_looped_attn = True,
+        dim_gate_looped_attn = None,
         data_dependent_rel_pos = False,
-        frac_gradient_data_dependent_rel_pos = 0.5
+        frac_gradient_state_transition = 0.5
     ):
         super().__init__()
 
         self.token_emb = nn.Embedding(num_tokens, dim)
 
         layers = ModuleList([])
+
         for _ in range(depth):
-            layers.append(ModuleList([
-                CausalFullAttention(
+
+            if use_gate_looped_attn:
+                spatial_mixer = GateLoopedAttention(
+                    dim = dim,
+                    dim_inner = dim_gate_looped_attn,
+                    frac_gradient_state_transition = frac_gradient_state_transition
+                )
+            else:
+                spatial_mixer = CausalFullAttention(
                     dim = dim,
                     dim_head = dim_head,
                     heads = heads,
                     data_dependent_rel_pos = data_dependent_rel_pos,
-                    frac_gradient_data_dependent_rel_pos = frac_gradient_data_dependent_rel_pos
-                ),
+                    frac_gradient_data_dependent_rel_pos = frac_gradient_state_transition
+                )
+
+            layers.append(ModuleList([
+                spatial_mixer,
                 FeedForward(
                     dim = dim,
                     mult = ff_mult
