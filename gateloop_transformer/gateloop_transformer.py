@@ -11,6 +11,10 @@ from einops.layers.torch import Rearrange
 def exists(v):
     return v is not None
 
+def safe_cumprod(t, eps = 1e-10, dim = -1):
+    t = torch.clip(t, min = eps, max = 1.)
+    return torch.exp(torch.cumsum(torch.log(t), dim = dim))
+
 # rms norm
 
 class RMSNorm(Module):
@@ -90,8 +94,8 @@ class CausalFullAttention(Module):
 
             a = a.sigmoid() # not sure about this
 
-            a_cumprod = a.cumprod(dim = -2)
-            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-8)
+            a_cumprod = safe_cumprod(a, dim = -2)
+            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-10)
 
             q = q * a_cumprod
             k = k * a_cumprod_inverse
@@ -116,7 +120,8 @@ class Transformer(Module):
         dim_head = 64,
         heads = 8,
         ff_mult = 4,
-        data_dependent_rel_pos = False
+        data_dependent_rel_pos = False,
+        frac_gradient_data_dependent_rel_pos = 0.5
     ):
         super().__init__()
 
@@ -129,7 +134,8 @@ class Transformer(Module):
                     dim = dim,
                     dim_head = dim_head,
                     heads = heads,
-                    data_dependent_rel_pos = data_dependent_rel_pos
+                    data_dependent_rel_pos = data_dependent_rel_pos,
+                    frac_gradient_data_dependent_rel_pos = frac_gradient_data_dependent_rel_pos
                 ),
                 FeedForward(
                     dim = dim,
