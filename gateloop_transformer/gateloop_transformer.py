@@ -143,7 +143,8 @@ def gate_loop_operator(q, k, v, a):
 
         return a_j * a_i, a_j.real * kv_i + kv_j
 
-    _, kv = associative_scan(binary_operator, (a, kv))
+    a = rearrange(a, '... -> ... 1')
+    _, kv = associative_scan(binary_operator, (a, kv), axis = 1)
 
     return einsum('b n d, b n d e -> b n e', q, kv)
 

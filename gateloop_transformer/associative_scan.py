@@ -4,6 +4,7 @@
 # will be adapted to test out GateLoop on a small scale https://arxiv.org/abs/2311.01927
 
 import torch
+import torch.nn.functional as F
 from functools import partial
 from optree import tree_flatten, tree_unflatten
 
@@ -87,3 +88,19 @@ def associative_scan(
     scans = _scan(elems_flat)
 
     return tree_unflatten(tree, scans)
+
+def _interleave(a, b, axis):
+    # https://stackoverflow.com/questions/60869537/how-can-i-interleave-5-pytorch-tensors
+    if b_trunc := (a.shape[axis] == b.shape[axis] + 1):
+        pad = [0, 0] * b.ndim
+        pad[(b.ndim-axis-1)*2+1] = 1 # +1=always end of dim, pad-order is reversed so start is at end
+        b = F.pad(b, pad)
+
+    stacked = torch.stack([a, b], dim=axis+1)
+    interleaved = torch.flatten(stacked, start_dim=axis, end_dim=axis+1)
+
+    if not b_trunc:
+        return interleaved
+
+    # TODO: find torch alternative for slice_along axis for torch.jit.script to work
+    return interleaved[slice_along_axis(0, b.shape[axis]+a.shape[axis]-1, axis=axis)]
