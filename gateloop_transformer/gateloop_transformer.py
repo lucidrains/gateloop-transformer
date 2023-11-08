@@ -132,7 +132,14 @@ def gate_loop_operator(q, k, v, a):
     def binary_operator(a, b):
         a_i, kv_i = a
         a_j, kv_j = b
-        return a_j * a_i, a_j * kv_i + kv_j
+
+        # unsure, but i think this is what the paper was doing
+        # feel free to open an issue if not
+
+        a_i = a_i.real.sigmoid() + 1.j * a_i.imag
+        a_j = a_j.real.sigmoid() + 1.j * a_j.imag
+
+        return a_j * a_i, a_j.real * kv_i + kv_j
 
     kv = associative_scan(binary_operator, (a, kv))
     return einsum('b n d, b n d e -> b n e', q, kv)
