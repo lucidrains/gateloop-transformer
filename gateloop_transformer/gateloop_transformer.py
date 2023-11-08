@@ -31,7 +31,8 @@ class CausalFullAttention(Module):
         *,
         dim_head = 64,
         heads = 8,
-        data_dependent_rel_pos = False
+        data_dependent_rel_pos = False,
+        frac_gradient_data_dependent_rel_pos = 0.1
     ):
         super().__init__()
         dim_inner = dim_head * heads
@@ -46,6 +47,7 @@ class CausalFullAttention(Module):
         )
 
         self.data_dependent_rel_pos = data_dependent_rel_pos
+        self.frac_gradient_data_dependent_rel_pos = frac_gradient_data_dependent_rel_pos
 
         if data_dependent_rel_pos:
             self.to_a = nn.Sequential(
@@ -66,7 +68,14 @@ class CausalFullAttention(Module):
         q = q * self.scale
 
         if self.data_dependent_rel_pos:
+            frac_gradient = self.frac_gradient_data_dependent_rel_pos
+
             a = self.to_a(x)
+
+            # allow for data dependent relative position projection to change more slowly
+            # alteernative to using a lowered learning rate mentioned in paper
+
+            a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
             a = a.sigmoid() # not sure about this
 
