@@ -92,7 +92,7 @@ class CausalFullAttention(Module):
 
             a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
-            a = a.sigmoid() # not sure about this
+            a = a.sigmoid() # not sure about this, complex formulation may be important?
 
             a_cumprod = safe_cumprod(a, dim = -2)
             a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-10)
