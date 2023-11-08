@@ -102,6 +102,10 @@ class CausalFullAttention(Module):
 
         sim = einsum('b h i d, b h j d -> b h i j', q, k)
 
+        i, j = sim.shape[2:]
+        causal_mask = torch.ones((i, j), dtype = torch.bool, device = x.device).triu(j - i + 1)
+        sim = sim.masked_fill(causal_mask, -torch.finfo(sim.dtype).max)
+
         if not self.data_dependent_rel_pos:
             attn = sim.softmax(dim = -1)
 
