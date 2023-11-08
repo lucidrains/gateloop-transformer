@@ -17,6 +17,7 @@ setup(
   ],
   install_requires=[
     'einops>=0.7.0',
+    'optree>=0.10.0',
     'rotary-embedding-torch',
     'torch>=2.0'
   ],

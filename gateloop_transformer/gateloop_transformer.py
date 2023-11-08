@@ -143,7 +143,8 @@ def gate_loop_operator(q, k, v, a):
 
         return a_j * a_i, a_j.real * kv_i + kv_j
 
-    kv = associative_scan(binary_operator, (a, kv))
+    _, kv = associative_scan(binary_operator, (a, kv))
+
     return einsum('b n d, b n d e -> b n e', q, kv)
 
 class GateLoopedAttention(Module):
@@ -154,6 +155,8 @@ class GateLoopedAttention(Module):
         frac_gradient_state_transition = 0.5
     ):
         super().__init__()
+        self.frac_gradient_state_transition = frac_gradient_state_transition
+
         dim_inner = default(dim_inner, dim)
 
         self.norm = RMSNorm(dim)
@@ -166,13 +169,13 @@ class GateLoopedAttention(Module):
         )
 
     def forward(self, x):
-        frac_gradient = self.self.frac_gradient_state_transition
+        frac_gradient = self.frac_gradient_state_transition
 
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
 
-        a = torch.to_a(x)
+        a = self.to_a(x)
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
         a = torch.view_as_complex(a)
@@ -223,7 +226,10 @@ class Transformer(Module):
             nn.Linear(dim, num_tokens, bias = False)
         )
 
-    def forward(self, x):
+    def forward(
+        self,
+        x
+    ):
         x = self.token_emb(x)
 
         for attn, ff in self.layers:

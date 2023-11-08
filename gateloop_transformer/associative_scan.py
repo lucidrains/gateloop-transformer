@@ -5,6 +5,7 @@
 
 import torch
 from functools import partial
+from optree import tree_flatten, tree_unflatten
 
 def safe_map(f, *args):
     args = list(map(list, args))
@@ -18,9 +19,11 @@ def slice_along_axis(start, end, stride=None, axis=0):
 
 # Pytorch impl. of jax.lax.associative_scan
 
-def associative_scan(operator, elems, axis=0):
-    from jax.tree_util import tree_flatten, tree_unflatten
-
+def associative_scan(
+    operator,
+    elems,
+    axis = 0
+):
     if not callable(operator):
         raise TypeError("lax.associative_scan: fn argument should be callable.")
 
@@ -35,7 +38,9 @@ def associative_scan(operator, elems, axis=0):
         return c_flat
 
     assert axis >= 0 or axis < elems_flat[0].ndim, "Axis should be within bounds of input"
+
     num_elems = int(elems_flat[0].shape[axis])
+
     if not all(int(elem.shape[axis]) == num_elems for elem in elems_flat[1:]):
         raise ValueError('Array inputs to associative_scan must have the same '
                          'first dimension. (saw: {})'
@@ -82,16 +87,3 @@ def associative_scan(operator, elems, axis=0):
     scans = _scan(elems_flat)
 
     return tree_unflatten(tree, scans)
-
-def test_associative_scan(shape = (1, 24, 24)):
-    tx = torch.randn(shape)
-
-    def nested_func(a,b):
-        a_i, b_i = a
-        a_j, b_j = b
-        return a_j * a_i, a_j * b_i + b_j
-
-    ty1, ty2 = associative_scan(nested_func, (tx, tx))
-
-if __name__ == '__main__':
-    test_associative_scan()
