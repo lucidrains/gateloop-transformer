@@ -74,9 +74,6 @@ def associative_scan(
 
         even_elems = [
           torch.cat([elem[slice_along_axis(0, 1, axis=axis)], result], dim=axis)
-          if result.shape.numel() > 0 and elem.shape[axis] > 0 else
-          result if result.shape.numel() > 0 else
-          elem[slice_along_axis(0, 1, axis=axis)]  # Jax allows/ignores concat with 0-dim, Pytorch does not
           for (elem, result) in zip(elems, even_elems)]
 
         return list(safe_map(partial(_interleave, axis=axis), even_elems, odd_elems))
