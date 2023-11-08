@@ -78,23 +78,18 @@ def associative_scan(
 
         return list(safe_map(partial(_interleave, axis=axis), even_elems, odd_elems))
 
-    scans = _scan(elems)
-
-    return scans
+    return _scan(elems)
 
 def _interleave(a, b, axis):
     # https://stackoverflow.com/questions/60869537/how-can-i-interleave-5-pytorch-tensors
 
-    output_axis_len = a.shape[axis] + b.shape[axis]
+    a_axis_len, b_axis_len = a.shape[axis], b.shape[axis]
+    output_axis_len = a_axis_len + b_axis_len
 
-    if b_trunc := (a.shape[axis] == b.shape[axis] + 1):
+    if (a_axis_len == (b_axis_len + 1)):
         b = pad_at_dim(b, (0, 1), dim = 1)
 
     stacked = torch.stack([a, b], dim=axis+1)
     interleaved = torch.flatten(stacked, start_dim=axis, end_dim=axis+1)
 
-    if not b_trunc:
-        return interleaved
-
-    # TODO: find torch alternative for slice_along axis for torch.jit.script to work
     return interleaved[slice_along_axis(0, output_axis_len, axis=axis)]
