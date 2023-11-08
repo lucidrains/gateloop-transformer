@@ -6,10 +6,15 @@ import torch.nn.functional as F
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
+from gateloop_transformer.associative_scan import associative_scan
+
 # helpers
 
 def exists(v):
     return v is not None
+
+def default(v, d):
+    return v if exists(v) else d
 
 def safe_cumprod(t, eps = 1e-10, dim = -1):
     t = torch.clip(t, min = eps, max = 1.)
@@ -114,6 +119,41 @@ class CausalFullAttention(Module):
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         return self.to_out(out)
+
+# attention with gateloop operator
+
+class GateLoopedAttention(Module):
+    def __init__(
+        self,
+        dim,
+        dim_inner = None
+    ):
+        super().__init__()
+        dim_inner = default(dim_inner, dim)
+
+        self.norm = RMSNorm(dim)
+
+        self.to_qkv = nn.Linear(dim, dim_inner * 3)
+        self.to_a = nn.Linear(dim, dim_inner, dtype = torch.complex64)
+
+    def forward(self, x):
+        x = self.norm(x)
+
+        q, k, v = self.to_qkv(x).chunk(3, dim = -1)
+
+        a = torch.to_a(x + 0.j)
+
+        kv = einsum('b n d, b n e -> b n d e')
+
+        def binary_operator(a, b):
+            a_i, kv_i = a
+            a_j, kv_j = b
+            return a_j * a_i, a_j * kv_i + kv_j
+
+        weighted_kv = associative_scan(binary_operator, (a, kv))
+
+        out = einsum('b n d, b n d e -> b n e', q, weighted_kv)
+        return out
 
 # main class
 
