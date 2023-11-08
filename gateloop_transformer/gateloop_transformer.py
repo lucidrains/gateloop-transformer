@@ -120,7 +120,22 @@ class CausalFullAttention(Module):
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         return self.to_out(out)
 
-# attention with gateloop operator
+# data gated linear attention with "gateloop operator"
+
+def gate_loop_operator(q, k, v, a):
+    """
+    the pseudocode in section 3.2 of the paper
+    """
+
+    kv = einsum('b n d, b n e -> b n d e', k, v)
+
+    def binary_operator(a, b):
+        a_i, kv_i = a
+        a_j, kv_j = b
+        return a_j * a_i, a_j * kv_i + kv_j
+
+    kv = associative_scan(binary_operator, (a, kv))
+    return einsum('b n d, b n d e -> b n e', q, kv)
 
 class GateLoopedAttention(Module):
     def __init__(
@@ -143,16 +158,8 @@ class GateLoopedAttention(Module):
 
         a = torch.to_a(x + 0.j)
 
-        kv = einsum('b n d, b n e -> b n d e')
+        out = gate_loop_operator(q, k, v, a)
 
-        def binary_operator(a, b):
-            a_i, kv_i = a
-            a_j, kv_j = b
-            return a_j * a_i, a_j * kv_i + kv_j
-
-        weighted_kv = associative_scan(binary_operator, (a, kv))
-
-        out = einsum('b n d, b n d e -> b n e', q, weighted_kv)
         return out
 
 # main class
