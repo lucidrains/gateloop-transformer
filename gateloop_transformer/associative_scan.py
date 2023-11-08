@@ -1,14 +1,16 @@
-# take from S5-pytorch repository
+# taken from S5-pytorch repository
 # https://github.com/i404788/s5-pytorch/blob/74e2fdae00b915a62c914bf3615c0b8a4279eb84/s5/jax_compat.py#L51-L134
 
 # will be adapted to test out GateLoop on a small scale https://arxiv.org/abs/2311.01927
+
+# todo: forget about generalized function and just make it all specific for axis = 1 (usually sequence dimension for transformer tokens)
 
 import torch
 from torch import Tensor
 import torch.nn.functional as F
 from functools import partial
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 def safe_map(f, *args):
     args = list(map(list, args))
@@ -23,13 +25,10 @@ def slice_along_axis(start, end, stride=None, axis=0):
 # Pytorch impl. of jax.lax.associative_scan
 
 def associative_scan(
-    operator,
+    operator: Callable,
     elems: Tuple[Tensor, Tensor],
     axis = 0
 ):
-    if not callable(operator):
-        raise TypeError("lax.associative_scan: fn argument should be callable.")
-
     num_elems = int(elems[0].shape[axis])
 
     if not all(int(elem.shape[axis]) == num_elems for elem in elems[1:]):
