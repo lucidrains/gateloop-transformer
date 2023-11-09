@@ -6,6 +6,8 @@ Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transf
 
 Jax version will be done with the <a href="https://github.com/patrick-kidger/equinox">Equinox</a> framework
 
+Update: A transformer run with regular attention + data dependent xpos relative positions did not converge at all. Also, gate loop's associative scan also is not able to train on even sequence lengths of 128. I'm not sure if it can be done without a specialized CUDA kernel, much like autoregressive linear attention (RWKV and the like)
+
 ## Install
 
 ```bash

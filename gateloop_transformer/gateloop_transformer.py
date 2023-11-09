@@ -77,8 +77,8 @@ class CausalFullAttention(Module):
                 Rearrange('b n (h d) -> b h n d', h = heads)
             )
 
-            nn.init.zero_(self.to_a.weight)
-            nn.init.constant_(self.to_a.bias, 10)
+            nn.init.zeros_(self.to_a[0].weight)
+            nn.init.constant_(self.to_a[0].bias, 10)
 
         self.to_out = nn.Sequential(
             Rearrange('b h n d -> b n (h d)'),
@@ -105,7 +105,7 @@ class CausalFullAttention(Module):
             a = a.sigmoid() # not sure about this, complex formulation may be important?
 
             a_cumprod = safe_cumprod(a, dim = -2)
-            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-10)
+            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-8)
 
             q = q * a_cumprod
             k = k * a_cumprod_inverse
@@ -114,10 +114,13 @@ class CausalFullAttention(Module):
 
         i, j = sim.shape[2:]
         causal_mask = torch.ones((i, j), dtype = torch.bool, device = x.device).triu(j - i + 1)
-        sim = sim.masked_fill(causal_mask, -torch.finfo(sim.dtype).max)
 
         if not self.data_dependent_rel_pos:
+            sim = sim.masked_fill(causal_mask, -torch.finfo(sim.dtype).max)
             attn = sim.softmax(dim = -1)
+        else:
+            sim = sim.masked_fill(causal_mask, 0.)
+            attn = sim
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         return self.to_out(out)
@@ -242,8 +245,12 @@ class Transformer(Module):
 
     def forward(
         self,
-        x
+        x,
+        return_loss = False
     ):
+        if return_loss:
+            x, labels = x[:, :-1], x[:, 1:]
+
         x = self.token_emb(x)
 
         for attn, ff in self.layers:
@@ -252,4 +259,8 @@ class Transformer(Module):
 
         logits = self.to_logits(x)
 
-        return logits
+        if not return_loss:
+            return logits
+
+        logits = rearrange(logits, 'b n c -> b c n')
+        return F.cross_entropy(logits, labels)
