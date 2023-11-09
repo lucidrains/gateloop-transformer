@@ -34,6 +34,7 @@ logits = model(ids) # (1, 1024, 256)
 ## Todo
 
 - [ ] start with naive memory checkpointing of gate loop operation
+- [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
 
 ## Citations
 
