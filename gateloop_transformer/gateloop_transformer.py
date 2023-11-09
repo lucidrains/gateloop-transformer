@@ -54,10 +54,12 @@ class CausalFullAttention(Module):
         dim_head = 64,
         heads = 8,
         data_dependent_rel_pos = False,
-        frac_gradient_data_dependent_rel_pos = 0.5
+        frac_gradient_data_dependent_rel_pos = 0.5,
+        softmax_normalize = None
     ):
         super().__init__()
         dim_inner = dim_head * heads
+        self.softmax_normalize = default(softmax_normalize, not data_dependent_rel_pos)
 
         self.scale = dim_head ** -0.5
 
@@ -105,7 +107,7 @@ class CausalFullAttention(Module):
             a = a.sigmoid() # not sure about this, complex formulation may be important?
 
             a_cumprod = safe_cumprod(a, dim = -2)
-            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-8)
+            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-10)
 
             q = q * a_cumprod
             k = k * a_cumprod_inverse
@@ -115,12 +117,11 @@ class CausalFullAttention(Module):
         i, j = sim.shape[2:]
         causal_mask = torch.ones((i, j), dtype = torch.bool, device = x.device).triu(j - i + 1)
 
-        if not self.data_dependent_rel_pos:
+        if self.softmax_normalize:
             sim = sim.masked_fill(causal_mask, -torch.finfo(sim.dtype).max)
             attn = sim.softmax(dim = -1)
         else:
-            sim = sim.masked_fill(causal_mask, 0.)
-            attn = sim
+            attn = sim.masked_fill(causal_mask, 0.)
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         return self.to_out(out)
@@ -202,6 +203,7 @@ class Transformer(Module):
         ff_mult = 4,
         use_gate_looped_attn = True,
         dim_gate_looped_attn = None,
+        attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
         frac_gradient_state_transition = 0.5
     ):
@@ -224,6 +226,7 @@ class Transformer(Module):
                     dim = dim,
                     dim_head = dim_head,
                     heads = heads,
+                    softmax_normalize = attn_softmax_normalize,
                     data_dependent_rel_pos = data_dependent_rel_pos,
                     frac_gradient_data_dependent_rel_pos = frac_gradient_state_transition
                 )
