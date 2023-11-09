@@ -11,6 +11,8 @@ from torch import Tensor
 from torch.nn import Module, functional as F
 from torch.utils.data import DataLoader, Dataset
 
+from accelerate import Accelerator
+
 from gateloop_transformer import Transformer
 
 # constants
@@ -25,9 +27,17 @@ GENERATE_EVERY = 500
 GENERATE_LENGTH = 512
 SEQ_LEN = 256
 
-DEVICE_STR = 'cuda' if torch.cuda.is_available() else 'cpu'
+WANDB = True
+RUN_NAME = 'baseline'
+
+# hf accelerate
+
+accelerator = Accelerator(log_with = 'wandb' if WANDB else None)
 
 # helpers
+
+def exists(v):
+    return v is not None
 
 def cycle(loader):
     while True:
@@ -82,9 +92,7 @@ def base_decoding(
 
 # instantiate transformer
 
-device = torch.device(DEVICE_STR)
-
-model = Transformer(
+hparams = dict(
     num_tokens = 256,
     dim = 512,
     depth = 6,
@@ -92,9 +100,16 @@ model = Transformer(
     use_gate_looped_attn = False,
     data_dependent_rel_pos = True,
     attn_softmax_normalize = True,
-    ablate_complex = True,
+    ablate_complex = False,
     rotary_emb = True
-).to(device)
+)
+
+model = Transformer(**hparams)
+
+accelerator.init_trackers('gateloop', config = hparams)
+
+if WANDB and exists(RUN_NAME):
+    accelerator.trackers[0].run.name = RUN_NAME
 
 # prepare enwik8 data
 
@@ -112,19 +127,36 @@ class TextSamplerDataset(Dataset):
     def __getitem__(self, index):
         rand_start = torch.randint(0, self.data.size(0) - self.seq_len, (1,))
         full_seq = self.data[rand_start : rand_start + self.seq_len + 1].long()
-        return full_seq.to(device)
+        return full_seq
 
     def __len__(self):
         return self.data.size(0) // self.seq_len
 
 train_dataset = TextSamplerDataset(data_train, SEQ_LEN)
 val_dataset = TextSamplerDataset(data_val, SEQ_LEN)
-train_loader = cycle(DataLoader(train_dataset, batch_size=BATCH_SIZE))
-val_loader = cycle(DataLoader(val_dataset, batch_size=BATCH_SIZE))
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
 
 # optimizer
 
 optim = Adam(model.parameters(), lr = LEARNING_RATE)
+
+# prepare
+
+(
+    model,
+    optim,
+    train_loader,
+    val_loader
+) = accelerator.prepare(
+    model,
+    optim,
+    train_loader,
+    val_loader
+)
+
+train_loader = cycle(train_loader)
+val_loader = cycle(val_loader)
 
 # training
 
@@ -136,14 +168,17 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval = 10.0, desc = "training"):
 
         loss = model(data, return_loss = True)
 
-        (loss / GRAD_ACCUM_EVERY).backward()
+        accelerator.backward(loss / GRAD_ACCUM_EVERY)
 
     print(f"training loss: {loss.item():.3f}")
+    accelerator.log(dict(loss = loss.item()), step = i)
 
     torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
     optim.step()
     optim.zero_grad()
+
+    accelerator.wait_for_everyone()
 
     if i % VALIDATE_EVERY == 0:
         model.eval()
@@ -152,11 +187,16 @@ for i in tqdm.tqdm(range(NUM_BATCHES), mininterval = 10.0, desc = "training"):
 
             loss = model(valid_data, return_loss = True)
             print(f"validation loss: {loss.item():.3f}")
+            accelerator.log(dict(valid_loss = loss.item()), step = i)
+
+    accelerator.wait_for_everyone()
 
     if i % GENERATE_EVERY == 0:
         model.eval()
 
         inp = random.choice(val_dataset)[:PRIME_LENGTH]
+        inp = inp.to(accelerator.device)
+
         prime = decode_tokens(inp)
         print(f"%s \n\n %s", (prime, "*" * 100))
 

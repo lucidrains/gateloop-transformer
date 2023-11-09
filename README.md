@@ -10,13 +10,13 @@ Update 2: Got a smaller GateLoop transformer (gate loop dimensions of 128) to ru
 
 Update 3: Fixed a misunderstanding and definitely seems to be converging better than vanilla linear attention (from my memories of those experiments).
 
-## Install
+### Install
 
 ```bash
 $ pip install gateloop-transformer
 ```
 
-## Usage
+### Usage
 
 ```python
 import torch
@@ -33,15 +33,21 @@ ids = torch.randint(0, 256, (1, 1024))
 logits = model(ids) # (1, 1024, 256)
 ```
 
-## Character-level Language Modeling
+### Character-level Language Modeling
 
-To test on enwik8
+Install requirements
 
-```python
+```bash
+$ pip install -r requirements.txt
+```
+
+Then run the `train.py` script for autoregressive modeling on enwik8
+
+```bash
 $ python train.py
 ```
 
-## Todo
+### Todo
 
 - [ ] start with naive memory checkpointing of gate loop operation
 - [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
