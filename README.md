@@ -8,6 +8,8 @@ Jax version will be done with the <a href="https://github.com/patrick-kidger/equ
 
 Update: A transformer run with regular attention + data dependent xpos relative positions did not converge at all. Also, gate loop's associative scan also is not able to train on even sequence lengths of 128. I'm not sure if it can be done without a specialized CUDA kernel, much like autoregressive linear attention (RWKV and the like)
 
+Update 2: Got a smaller GateLoop transformer (gate loop dimensions of 128) to run on sequence length of 256. It is converging very well with a quick eyeball. Will run some more rigorous experiments tomorrow.
+
 ## Install
 
 ```bash
@@ -31,10 +33,19 @@ ids = torch.randint(0, 256, (1, 1024))
 logits = model(ids) # (1, 1024, 256)
 ```
 
+## Character-level Language Modeling
+
+To test on enwik8
+
+```python
+$ python train.py
+```
+
 ## Todo
 
 - [ ] start with naive memory checkpointing of gate loop operation
 - [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
+- [ ] retry the failed full attention experiments (with data dependent xpos), but with complex valued scales
 
 ## Citations
 
