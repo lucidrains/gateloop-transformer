@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'gateloop-transformer',
   packages = find_packages(exclude=[]),
-  version = '0.0.6',
+  version = '0.0.7',
   license='MIT',
   description = 'GateLoop Transformer',
   author = 'Phil Wang',
