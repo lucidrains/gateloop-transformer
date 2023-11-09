@@ -10,6 +10,8 @@ Update: A transformer run with regular attention + data dependent xpos relative 
 
 Update 2: Got a smaller GateLoop transformer (gate loop dimensions of 128) to run on sequence length of 256. It is converging very well with a quick eyeball. Will run some more rigorous experiments tomorrow.
 
+Update 3: Fixed a misunderstanding and definitely seems to be converging better than vanilla linear attention (from my memories of those experiments).
+
 ## Install
 
 ```bash
