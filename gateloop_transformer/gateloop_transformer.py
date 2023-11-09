@@ -18,10 +18,6 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
-def safe_cumprod(t, eps = 1e-10, dim = -1):
-    t = torch.clip(t, min = eps, max = 1.)
-    return torch.exp(torch.cumsum(torch.log(t), dim = dim))
-
 # rms norm
 
 class RMSNorm(Module):
@@ -75,12 +71,9 @@ class CausalFullAttention(Module):
 
         if data_dependent_rel_pos:
             self.to_a = nn.Sequential(
-                nn.Linear(dim, dim_inner),
-                Rearrange('b n (h d) -> b h n d', h = heads)
+                nn.Linear(dim, dim_inner * 2),
+                Rearrange('b n (h d c) -> b h n d c', h = heads, c = 2)
             )
-
-            nn.init.zeros_(self.to_a[0].weight)
-            nn.init.constant_(self.to_a[0].bias, 10)
 
         self.to_out = nn.Sequential(
             Rearrange('b h n d -> b n (h d)'),
@@ -104,13 +97,18 @@ class CausalFullAttention(Module):
 
             a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
-            a = a.sigmoid() # not sure about this, complex formulation may be important?
+            a = torch.view_as_complex(a)
 
-            a_cumprod = safe_cumprod(a, dim = -2)
-            a_cumprod_inverse = 1. / a_cumprod.clamp(min = 1e-10)
+            magnitude, phase = a.abs(), a.angle()
+            a = torch.polar(magnitude.sigmoid(), phase)
 
-            q = q * a_cumprod
-            k = k * a_cumprod_inverse
+            a_cumprod = a.cumprod(dim = -2)
+
+            a_cumprod_real = a_cumprod.real
+            a_cumprod_real_inverse = 1. / a_cumprod_real.clamp(min = 1e-10)
+
+            q = q * a_cumprod_real
+            k = k * a_cumprod_real_inverse
 
         sim = einsum('b h i d, b h j d -> b h i j', q, k)
 
