@@ -102,6 +102,7 @@ hparams = dict(
     data_dependent_rel_pos = True,
     attn_softmax_normalize = True,
     ablate_complex = False,
+    ablate_state_transition = False,
     rotary_emb = True
 )
 

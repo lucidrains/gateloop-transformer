@@ -86,7 +86,12 @@ class CausalFullAttention(Module):
             nn.Linear(dim_inner, dim)
         )
 
-    def forward(self, x, ablate_complex = False):
+    def forward(
+        self,
+        x,
+        ablate_complex = False,
+        ablate_state_transition = False
+    ):
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x)
@@ -97,7 +102,7 @@ class CausalFullAttention(Module):
 
         q = q * self.scale
 
-        if self.data_dependent_rel_pos:
+        if self.data_dependent_rel_pos and not ablate_state_transition:
             frac_gradient = self.frac_gradient_data_dependent_rel_pos
 
             a = self.to_a(x)
@@ -194,7 +199,12 @@ class GateLoopedAttention(Module):
 
         self.to_out = nn.Linear(dim_inner, dim, bias = False) if dim_inner != dim else nn.Identity()
 
-    def forward(self, x, ablate_complex = False):
+    def forward(
+        self,
+        x,
+        ablate_complex = False,
+        ablate_state_transition = False
+    ):
         frac_gradient = self.frac_gradient_state_transition
 
         x = self.norm(x)
@@ -208,6 +218,9 @@ class GateLoopedAttention(Module):
 
         if ablate_complex:
             a = a.real + 0.j
+
+        if ablate_state_transition:
+            a = torch.ones_like(a.real) + 0.j
 
         need_backwards = any([t.requires_grad for t in (q, k, v, a)])
 
@@ -236,10 +249,12 @@ class Transformer(Module):
         data_dependent_rel_pos = False,
         frac_gradient_state_transition = 0.5,
         ablate_complex = False,
+        ablate_state_transition = False,
         rotary_emb = False
     ):
         super().__init__()
         self.ablate_complex = ablate_complex
+        self.ablate_state_transition = ablate_state_transition
 
         self.token_emb = nn.Embedding(num_tokens, dim)
 
@@ -284,9 +299,11 @@ class Transformer(Module):
         self,
         x,
         return_loss = False,
-        ablate_complex = None
+        ablate_complex = None,
+        ablate_state_transition = None
     ):
         ablate_complex = default(ablate_complex, self.ablate_complex)
+        ablate_state_transition = default(ablate_state_transition, self.ablate_state_transition)
 
         if return_loss:
             x, labels = x[:, :-1], x[:, 1:]
@@ -294,7 +311,12 @@ class Transformer(Module):
         x = self.token_emb(x)
 
         for attn, ff in self.layers:
-            x = attn(x, ablate_complex = ablate_complex) + x
+            x = attn(
+                x,
+                ablate_complex = ablate_complex,
+                ablate_state_transition = ablate_state_transition
+            ) + x
+
             x = ff(x) + x
 
         logits = self.to_logits(x)
