@@ -45,7 +45,8 @@ $ python train.py
 
 - [ ] start with naive memory checkpointing of gate loop operation
 - [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
-- [ ] retry the failed full attention experiments (with data dependent xpos), but with complex valued scales
+
+- [x] retry the failed full attention experiments (with data dependent xpos), but with complex valued scales (didn't work)
 
 ## Citations
 
