@@ -149,7 +149,7 @@ def gate_loop_operator(q, k, v, a):
     magnitude, phase = a.abs(), a.angle()
     a = torch.polar(magnitude.sigmoid(), phase)
 
-    _, kv = associative_scan(binary_operator, (a, kv), axis = 1)
+    _, kv = associative_scan(binary_operator, (a, kv))
 
     return einsum('b n d, b n d e -> b n e', q, kv)
 
