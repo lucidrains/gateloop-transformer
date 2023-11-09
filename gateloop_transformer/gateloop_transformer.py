@@ -1,6 +1,9 @@
+from functools import partial
+
 import torch
 from torch.nn import Module, ModuleList
 from torch import nn, einsum, Tensor
+from torch.utils.checkpoint import checkpoint
 import torch.nn.functional as F
 
 from einops import rearrange
@@ -171,10 +174,12 @@ class GateLoopedAttention(Module):
         self,
         dim,
         dim_inner = None,
+        checkpoint_gate_looped_attn = True,
         frac_gradient_state_transition = 0.5
     ):
         super().__init__()
         self.frac_gradient_state_transition = frac_gradient_state_transition
+        self.checkpoint_gate_looped_attn = checkpoint_gate_looped_attn
 
         dim_inner = default(dim_inner, dim)
 
@@ -204,7 +209,11 @@ class GateLoopedAttention(Module):
         if ablate_complex:
             a = a.real + 0.j
 
-        out = gate_loop_operator(q, k, v, a)
+        need_backwards = any([t.requires_grad for t in (q, k, v, a)])
+
+        fn = partial(checkpoint, gate_loop_operator) if need_backwards and self.checkpoint_gate_looped_attn else gate_loop_operator
+
+        out = fn(q, k, v, a)
 
         return self.to_out(out)
 
@@ -220,6 +229,7 @@ class Transformer(Module):
         dim_head = 64,
         heads = 8,
         ff_mult = 4,
+        checkpoint_gate_looped_attn = True,
         use_gate_looped_attn = True,
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
@@ -241,6 +251,7 @@ class Transformer(Module):
                 spatial_mixer = GateLoopedAttention(
                     dim = dim,
                     dim_inner = dim_gate_looped_attn,
+                    checkpoint_gate_looped_attn = checkpoint_gate_looped_attn,
                     frac_gradient_state_transition = frac_gradient_state_transition
                 )
             else:
