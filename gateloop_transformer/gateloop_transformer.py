@@ -107,8 +107,8 @@ class CausalFullAttention(Module):
 
             a_cumprod = a.cumprod(dim = -2)
 
-            a_cumprod_real = a_cumprod.real
-            a_cumprod_real_inverse = 1. / a_cumprod_real.clamp(min = 1e-10)
+            a_cumprod_real = a_cumprod.real.clamp(min = 1e-10)
+            a_cumprod_real_inverse = 1. / a_cumprod_real
 
             q = q * a_cumprod_real
             k = k * a_cumprod_real_inverse
