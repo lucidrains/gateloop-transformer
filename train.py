@@ -91,7 +91,8 @@ model = Transformer(
     dim_gate_looped_attn = 128,
     use_gate_looped_attn = True,
     data_dependent_rel_pos = True,
-    attn_softmax_normalize = True
+    attn_softmax_normalize = True,
+    ablate_complex = True
 ).to(device)
 
 # prepare enwik8 data
