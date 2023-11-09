@@ -88,7 +88,8 @@ model = Transformer(
     num_tokens = 256,
     dim = 512,
     depth = 6,
-    use_gate_looped_attn = False,
+    dim_gate_looped_attn = 64,
+    use_gate_looped_attn = True,
     data_dependent_rel_pos = True,
     attn_softmax_normalize = True
 ).to(device)

@@ -31,6 +31,10 @@ ids = torch.randint(0, 256, (1, 1024))
 logits = model(ids) # (1, 1024, 256)
 ```
 
+## Todo
+
+- [ ] start with naive memory checkpointing of gate loop operation
+
 ## Citations
 
 ```bibtex

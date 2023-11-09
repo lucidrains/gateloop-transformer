@@ -166,12 +166,14 @@ class GateLoopedAttention(Module):
 
         self.norm = RMSNorm(dim)
 
-        self.to_qkv = nn.Linear(dim, dim_inner * 3)
+        self.to_qkv = nn.Linear(dim, dim_inner * 3, bias = False)
 
         self.to_a = nn.Sequential(
             nn.Linear(dim, dim_inner * 2),
             Rearrange('... (d c) -> ... d c', c = 2)
         )
+
+        self.to_out = nn.Linear(dim_inner, dim, bias = False) if dim_inner != dim else nn.Identity()
 
     def forward(self, x):
         frac_gradient = self.frac_gradient_state_transition
@@ -187,7 +189,7 @@ class GateLoopedAttention(Module):
 
         out = gate_loop_operator(q, k, v, a)
 
-        return out
+        return self.to_out(out)
 
 # main class
 
