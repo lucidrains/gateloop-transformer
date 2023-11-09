@@ -49,6 +49,7 @@ class CausalFullAttention(Module):
         *,
         dim_head = 64,
         heads = 8,
+        rotary_emb = False,
         data_dependent_rel_pos = False,
         frac_gradient_data_dependent_rel_pos = 0.5,
         softmax_normalize = None
@@ -61,6 +62,8 @@ class CausalFullAttention(Module):
 
         self.norm = RMSNorm(dim)
 
+        self.rotary_emb = RotaryEmbedding(dim_head) if rotary_emb else None
+
         self.to_qkv = nn.Sequential(
             nn.Linear(dim, dim_inner * 3),
             Rearrange('b n (qkv h d) -> qkv b h n d', h = heads, qkv = 3)
@@ -71,7 +74,7 @@ class CausalFullAttention(Module):
 
         if data_dependent_rel_pos:
             self.to_a = nn.Sequential(
-                nn.Linear(dim, dim_inner * 2),
+                nn.Linear(dim, dim_inner),
                 Rearrange('b n (h d c) -> b h n d c', h = heads, c = 2)
             )
 
@@ -84,6 +87,10 @@ class CausalFullAttention(Module):
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x)
+
+        if exists(self.rotary_emb):
+            q = self.rotary_emb.rotate_queries_or_keys(q)
+            k = self.rotary_emb.rotate_queries_or_keys(k)
 
         q = q * self.scale
 
@@ -105,13 +112,18 @@ class CausalFullAttention(Module):
             magnitude, phase = a.abs(), a.angle()
             a = torch.polar(magnitude.sigmoid(), phase)
 
+            a = rearrange(a, '... -> ... 1')
             a_cumprod = a.cumprod(dim = -2)
 
             a_cumprod_real = a_cumprod.real.clamp(min = 1e-10)
             a_cumprod_real_inverse = 1. / a_cumprod_real
 
+            q, k = map(lambda t: rearrange(t, '... (d c) -> ... d c', c = 2), (q, k))
+
             q = q * a_cumprod_real
             k = k * a_cumprod_real_inverse
+
+            q, k = map(lambda t: rearrange(t, '... d c -> ... (d c)'), (q, k))
 
         sim = einsum('b h i d, b h j d -> b h i j', q, k)
 
@@ -213,7 +225,8 @@ class Transformer(Module):
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
         frac_gradient_state_transition = 0.5,
-        ablate_complex = False
+        ablate_complex = False,
+        rotary_emb = False
     ):
         super().__init__()
         self.ablate_complex = ablate_complex
@@ -235,6 +248,7 @@ class Transformer(Module):
                     dim = dim,
                     dim_head = dim_head,
                     heads = heads,
+                    rotary_emb = rotary_emb,
                     softmax_normalize = attn_softmax_normalize,
                     data_dependent_rel_pos = data_dependent_rel_pos,
                     frac_gradient_data_dependent_rel_pos = frac_gradient_state_transition
