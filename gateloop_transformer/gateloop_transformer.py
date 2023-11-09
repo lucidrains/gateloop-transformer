@@ -178,6 +178,7 @@ class GateLoopedAttention(Module):
     def __init__(
         self,
         dim,
+        heads = None,
         dim_inner = None,
         checkpoint_gate_looped_attn = True,
         frac_gradient_state_transition = 0.5
@@ -187,16 +188,21 @@ class GateLoopedAttention(Module):
         self.checkpoint_gate_looped_attn = checkpoint_gate_looped_attn
 
         dim_inner = default(dim_inner, dim)
+        heads = default(heads, dim_inner)
 
         self.norm = RMSNorm(dim)
+
+        self.heads = heads
+        self.split_heads = Rearrange('b n (h d) -> (b h) n d', h = heads)
 
         self.to_qkv = nn.Linear(dim, dim_inner * 3, bias = False)
 
         self.to_a = nn.Sequential(
             nn.Linear(dim, dim_inner * 2),
-            Rearrange('... (d c) -> ... d c', c = 2)
+            Rearrange('b n (h d c) -> (b h) n d c', h = heads, c = 2)
         )
 
+        self.merge_heads = Rearrange('(b h) n d -> b n (h d)', h = heads)
         self.to_out = nn.Linear(dim_inner, dim, bias = False) if dim_inner != dim else nn.Identity()
 
     def forward(
@@ -210,6 +216,8 @@ class GateLoopedAttention(Module):
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
+
+        q, k, v = map(self.split_heads, (q, k, v))
 
         a = self.to_a(x)
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
@@ -228,6 +236,7 @@ class GateLoopedAttention(Module):
 
         out = fn(q, k, v, a)
 
+        out = self.merge_heads(out)
         return self.to_out(out)
 
 # main class
@@ -244,6 +253,7 @@ class Transformer(Module):
         ff_mult = 4,
         checkpoint_gate_looped_attn = True,
         use_gate_looped_attn = True,
+        gate_loop_heads = None,
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
@@ -265,6 +275,7 @@ class Transformer(Module):
             if use_gate_looped_attn:
                 spatial_mixer = GateLoopedAttention(
                     dim = dim,
+                    heads = gate_loop_heads,
                     dim_inner = dim_gate_looped_attn,
                     checkpoint_gate_looped_attn = checkpoint_gate_looped_attn,
                     frac_gradient_state_transition = frac_gradient_state_transition

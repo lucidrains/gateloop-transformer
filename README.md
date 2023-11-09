@@ -12,6 +12,8 @@ Update 3: Fixed a misunderstanding and definitely seems to be converging better 
 
 Update 4: <a href="https://api.wandb.ai/links/lucidrains/ysbz84fn">Ongoing experiments</a>
 
+Update 5: Author has reviewed the code, and there was another misunderstanding. They use maximum heads (heads == dimension). This is kind of a plot twist, as this is infeasible for normal attention. It also obviates the need a fused CUDA kernel as in autoregressive linear attention.
+
 ### Install
 
 ```bash
