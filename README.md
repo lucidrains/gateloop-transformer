@@ -11,7 +11,7 @@ Update: A transformer run with regular attention + data dependent xpos relative 
 ## Install
 
 ```bash
-$ pip install gateloop-transformr
+$ pip install gateloop-transformer
 ```
 
 ## Usage
