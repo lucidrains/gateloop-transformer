@@ -80,7 +80,7 @@ class CausalFullAttention(Module):
             nn.Linear(dim_inner, dim)
         )
 
-    def forward(self, x):
+    def forward(self, x, ablate_complex = False):
         x = self.norm(x)
 
         q, k, v = self.to_qkv(x)
@@ -98,6 +98,9 @@ class CausalFullAttention(Module):
             a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
             a = torch.view_as_complex(a)
+
+            if ablate_complex:
+                a = a.real + 0.j
 
             magnitude, phase = a.abs(), a.angle()
             a = torch.polar(magnitude.sigmoid(), phase)
@@ -174,7 +177,7 @@ class GateLoopedAttention(Module):
 
         self.to_out = nn.Linear(dim_inner, dim, bias = False) if dim_inner != dim else nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x, ablate_complex = False):
         frac_gradient = self.frac_gradient_state_transition
 
         x = self.norm(x)
@@ -185,6 +188,9 @@ class GateLoopedAttention(Module):
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
         a = torch.view_as_complex(a)
+
+        if ablate_complex:
+            a = a.real + 0.j
 
         out = gate_loop_operator(q, k, v, a)
 
@@ -206,9 +212,11 @@ class Transformer(Module):
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
-        frac_gradient_state_transition = 0.5
+        frac_gradient_state_transition = 0.5,
+        ablate_complex = False
     ):
         super().__init__()
+        self.ablate_complex = ablate_complex
 
         self.token_emb = nn.Embedding(num_tokens, dim)
 
@@ -250,15 +258,18 @@ class Transformer(Module):
     def forward(
         self,
         x,
-        return_loss = False
+        return_loss = False,
+        ablate_complex = None
     ):
+        ablate_complex = default(ablate_complex, self.ablate_complex)
+
         if return_loss:
             x, labels = x[:, :-1], x[:, 1:]
 
         x = self.token_emb(x)
 
         for attn, ff in self.layers:
-            x = attn(x) + x
+            x = attn(x, ablate_complex = ablate_complex) + x
             x = ff(x) + x
 
         logits = self.to_logits(x)
