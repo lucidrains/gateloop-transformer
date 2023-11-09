@@ -11,6 +11,7 @@ Update 2: Got a smaller GateLoop transformer (gate loop dimensions of 128) to ru
 Update 3: Fixed a misunderstanding and definitely seems to be converging better than vanilla linear attention (from my memories of those experiments).
 
 Update 4: <a href="https://api.wandb.ai/links/lucidrains/ysbz84fn">Ongoing experiments</a>
+
 ### Install
 
 ```bash
