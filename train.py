@@ -28,6 +28,7 @@ GENERATE_LENGTH = 512
 SEQ_LEN = 256
 
 WANDB = True
+PROJECT_NAME = 'gateloop'
 RUN_NAME = 'baseline'
 
 # hf accelerate
@@ -106,7 +107,13 @@ hparams = dict(
 
 model = Transformer(**hparams)
 
-accelerator.init_trackers('gateloop', config = hparams)
+# initialize experiment tracking
+
+num_parameters = sum(p.numel() for p in model.parameters())
+print(f'number of parameters: {num_parameters}')
+
+wandb_config = {**hparams, 'num_parameters': num_parameters}
+accelerator.init_trackers(PROJECT_NAME, config = wandb_config)
 
 if WANDB and exists(RUN_NAME):
     accelerator.trackers[0].run.name = RUN_NAME
