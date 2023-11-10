@@ -22,6 +22,8 @@ Update 8: Directly projecting to `kv` with one projection for the max-heads sett
 
 Update 9: <a href="https://api.wandb.ai/links/lucidrains/do1i9rx0">Head to head to 20k</a>, just to make sure Gateloop doesn't get exceeded later on
 
+Update 10: and it got passed by attention, at least, assuming the implementation in the repo is correct.
+
 ## Appreciation
 
 - <a href="https://stability.ai/">StabilityAI</a>, <a href="https://a16z.com/supporting-the-open-source-ai-community/">A16Z Open Source AI Grant Program</a>, and <a href="https://huggingface.co/">🤗 Huggingface</a> for the generous sponsorships, as well as my other sponsors, for affording me the independence to open source current artificial intelligence research
@@ -71,7 +73,7 @@ $ python train.py
 
 - [ ] experiments
     - [x] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
-    - [ ] do complete runs between transformer + rotary against gateloop with max heads, parameter held constant to 20k steps
+    - [x] do complete runs between transformer + rotary against gateloop with max heads, parameter held constant to 20k steps
 
 - [ ] start looking into torch jit + associative scan, make it work
 - [ ] separate out gateloop transformer from the full causal transformer once experiment is complete. do a single concise file for gateloop
