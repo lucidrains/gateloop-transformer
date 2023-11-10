@@ -60,7 +60,7 @@ $ python train.py
 ### Todo
 
 - [ ] experiments
-    - [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
+    - [x] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
     - [ ] do complete runs between transformer + rotary against gateloop with max heads, parameter held constant to 20k steps
 
 - [ ] jax version with equinox
