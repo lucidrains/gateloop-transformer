@@ -176,14 +176,6 @@ def gate_loop_operator(q, k, v, a):
 
         return a_j * a_i, a_j.real * kv_i + kv_j
 
-    a = rearrange(a, '... -> ... 1')
-
-    # activations for state transitions
-    # sigmoid for magnitude, identity for phase
-
-    magnitude, phase = a.abs(), a.angle()
-    a = torch.polar(magnitude.sigmoid(), phase)
-
     _, kv = associative_scan(binary_operator, (a, kv))
 
     return einsum('b n d, b n d e -> b n e', q, kv)
@@ -216,7 +208,7 @@ class GateLoopedAttention(Module):
 
         self.to_a = nn.Sequential(
             nn.Linear(dim, heads * 2),
-            Rearrange('b n (h c) -> (b h) n 1 c', h = heads, c = 2)
+            Rearrange('b n (h c) -> (b h) n 1 1 c', h = heads, c = 2)
         )
 
         self.merge_heads = Rearrange('(b h) n d -> b n (h d)', h = heads)
@@ -255,6 +247,12 @@ class GateLoopedAttention(Module):
 
         if ablate_state_transition:
             a = torch.ones_like(a.real) + 0.j
+        else:
+            # activations for state transitions
+            # sigmoid for magnitude, identity for phase
+
+            magnitude, phase = a.abs(), a.angle()
+            a = torch.polar(magnitude.sigmoid(), phase)
 
         need_backwards = any([t.requires_grad for t in (q, k, v, a)])
 
