@@ -181,7 +181,7 @@ class GateLoopedAttention(Module):
         heads = None,
         dim_inner = None,
         checkpoint_gate_looped_attn = True,
-        frac_gradient_state_transition = 0.5
+        frac_gradient_state_transition = 0.9
     ):
         super().__init__()
         self.frac_gradient_state_transition = frac_gradient_state_transition
@@ -259,7 +259,7 @@ class Transformer(Module):
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
-        frac_gradient_state_transition = 0.5,
+        frac_gradient_state_transition = 0.9,
         ablate_complex = False,
         ablate_state_transition = False,
         rotary_emb = False
