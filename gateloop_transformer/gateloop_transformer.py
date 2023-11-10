@@ -53,6 +53,7 @@ class CausalFullAttention(Module):
         dim_head = 64,
         heads = 8,
         rotary_emb = False,
+        add_swish_gating = False,
         data_dependent_rel_pos = False,
         frac_gradient_data_dependent_rel_pos = 0.5,
         softmax_normalize = None
@@ -68,7 +69,7 @@ class CausalFullAttention(Module):
         self.rotary_emb = RotaryEmbedding(dim_head) if rotary_emb else None
 
         self.to_qkv = nn.Sequential(
-            nn.Linear(dim, dim_inner * 3),
+            nn.Linear(dim, dim_inner * 3, bias = False),
             Rearrange('b n (qkv h d) -> qkv b h n d', h = heads, qkv = 3)
         )
 
@@ -77,8 +78,17 @@ class CausalFullAttention(Module):
 
         if data_dependent_rel_pos:
             self.to_a = nn.Sequential(
-                nn.Linear(dim, dim_inner),
+                nn.Linear(dim, dim_inner, bias = False),
                 Rearrange('b n (h d c) -> b h n d c', h = heads, c = 2)
+            )
+
+        self.to_gates = None
+
+        if add_swish_gating:
+            self.to_gates = nn.Sequential(
+                nn.Linear(dim, dim_inner, bias = False),
+                nn.SiLU(),
+                Rearrange('b n (h d) -> b h n d', h = heads)
             )
 
         self.to_out = nn.Sequential(
@@ -145,6 +155,10 @@ class CausalFullAttention(Module):
             attn = sim.masked_fill(causal_mask, 0.)
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
+
+        if exists(self.to_gates):
+            out = out * self.to_gates(x)
+
         return self.to_out(out)
 
 # data gated linear attention with "gateloop operator"
@@ -270,7 +284,7 @@ class Transformer(Module):
         checkpoint_gate_looped_attn = True,
         use_gate_looped_attn = True,
         gate_loop_heads = None,
-        gate_loop_add_swish_gating = True,
+        attn_add_swish_gating = True,
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
@@ -294,7 +308,7 @@ class Transformer(Module):
                     dim = dim,
                     heads = gate_loop_heads,
                     dim_inner = dim_gate_looped_attn,
-                    add_swish_gating = gate_loop_add_swish_gating,
+                    add_swish_gating = attn_add_swish_gating,
                     checkpoint_gate_looped_attn = checkpoint_gate_looped_attn,
                     frac_gradient_state_transition = frac_gradient_state_transition
                 )
@@ -304,6 +318,7 @@ class Transformer(Module):
                     dim_head = dim_head,
                     heads = heads,
                     rotary_emb = rotary_emb,
+                    add_swish_gating = attn_add_swish_gating,
                     softmax_normalize = attn_softmax_normalize,
                     data_dependent_rel_pos = data_dependent_rel_pos,
                     frac_gradient_data_dependent_rel_pos = frac_gradient_state_transition
