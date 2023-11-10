@@ -18,6 +18,8 @@ Update 6: Corrected gateloop transformer run looks amazing. Cautiously optimisti
 
 Update 7: Ablating state transition shows expected negative result. Ablating complex valued states though, I see no difference, at least, early in the run.
 
+Update 8: Directly projecting to `kv` with one projection for the max-heads setting (instead of keys and values separately followed by element-wise multiplication) yields similar results
+
 ### Install
 
 ```bash
