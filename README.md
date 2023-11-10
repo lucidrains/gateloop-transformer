@@ -2,7 +2,7 @@
 
 ## GateLoop Transformer (wip)
 
-Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transformer in Pytorch, to be tested on Enwik8 character level modeling.
+Implementation of <a href="https://arxiv.org/abs/2311.01927">GateLoop</a> Transformer in Pytorch and Jax, to be tested on Enwik8 character level modeling.
 
 Update: A transformer run with regular attention + data dependent xpos relative positions did not converge at all. Also, gate loop's associative scan also is not able to train on even sequence lengths of 128. I'm not sure if it can be done without a specialized CUDA kernel, much like autoregressive linear attention (RWKV and the like)
 
