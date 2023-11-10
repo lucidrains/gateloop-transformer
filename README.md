@@ -20,6 +20,8 @@ Update 7: Ablating state transition shows expected negative result. Ablating com
 
 Update 8: Directly projecting to `kv` with one projection for the max-heads setting (instead of keys and values separately followed by element-wise multiplication) yields similar results
 
+Update 9: <a href="https://api.wandb.ai/links/lucidrains/do1i9rx0">Head to head to 20k</a>, just to make sure Gateloop doesn't get exceeded later on
+
 ### Install
 
 ```bash
