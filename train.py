@@ -30,7 +30,7 @@ SEQ_LEN = 256
 
 WANDB = True
 PROJECT_NAME = 'gateloop'
-RUN_NAME = 'baseline gateloop - 16 heads'
+RUN_NAME = 'baseline gateloop'
 
 # hf accelerate
 
@@ -138,13 +138,13 @@ hparams = dict(
     dim = 512,
     depth = 6,
     use_gate_looped_attn = True,
-    gate_loop_heads = 16,              # in paper, they used heads == dim, but should experiment with less heads, as memory allows. we should figure out how much max-heads contributed to the performance, if any
+    gate_loop_heads = 512,              # in paper, they used heads == dim, but should experiment with less heads, as memory allows. we should figure out how much max-heads contributed to the performance, if any
     data_dependent_rel_pos = False,
     attn_softmax_normalize = True,
     ablate_complex = False,
     ablate_state_transition = False,
     rotary_emb = False,
-    post_ln_norm = False
+    post_ln_norm = True
 )
 
 model = Transformer(**hparams)

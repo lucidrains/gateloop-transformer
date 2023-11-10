@@ -41,20 +41,72 @@ class RMSNorm(Module):
 
 # gate loop layer
 
+def gate_loop_operator(kv, q, a):
+
+    def binary_operator(e_i, e_j):
+        a_i, kv_i = e_i
+        a_j, kv_j = e_j
+        return a_j * a_i, a_j * kv_i + kv_j
+
+    _, y = associative_scan(binary_operator, (a, kv), axis = 1)
+    return q * y
+
 class GateLoop(Module):
     norm: RMSNorm
+    wq: np.ndarray
+    wk: np.ndarray
+    wv: np.ndarray
+    wa: np.ndarray
+    wg: np.ndarray
+    wo: np.ndarray
 
     def __init__(
         self,
         dim,
         key
     ):
+        """
+        q - query
+        k - key
+        v - value
+        a - state transition
+        g - gating with silu activation
+        o - output
+        """
+
+        q_key, k_key, v_key, a_key, g_key, o_key = random.split(key, 6)
+
+        self.wq = random.normal(q_key, (dim, dim))
+        self.wk = random.normal(k_key, (dim, dim))
+        self.wv = random.normal(v_key, (dim, dim))
+        self.wa = random.normal(a_key, (dim, dim))
+        self.wg = random.normal(g_key, (dim, dim))
+        self.wo = random.normal(o_key, (dim, dim))
+
         self.norm = RMSNorm(dim)
 
     def __call__(self, x):
-        return self.norm(x)
+        x = self.norm(x)
 
-# feedforward
+        q = x @ self.wq
+        k = x @ self.wk
+        v = x @ self.wv
+        a = x @ self.wa
+        g = x @ self.wg
+        o = x @ self.wo
+
+        kv = k * v
+        a = nn.sigmoid(a)
+
+        y = gate_loop_operator(kv, q, a)
+
+        y = y * nn.silu(g)
+
+        o = y @ self.wo
+
+        return o
+
+# basic feedforward with pre-rmsnorm
 
 class FeedForward(Module):
     norm: RMSNorm
@@ -114,7 +166,6 @@ class GateLoopTransformer(Module):
 
     @jit
     def __call__(self, x):
-        n = x.shape[-1]
         x = self.embedding[x]
 
         for gateloop, ff in self.layers:
@@ -122,4 +173,6 @@ class GateLoopTransformer(Module):
             x = ff(x) + x
 
         x = self.norm(x)
-        return x @ self.embedding.transpose()
+        logits = x @ self.embedding.transpose()
+
+        return logits
