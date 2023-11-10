@@ -22,6 +22,10 @@ Update 8: Directly projecting to `kv` with one projection for the max-heads sett
 
 Update 9: <a href="https://api.wandb.ai/links/lucidrains/do1i9rx0">Head to head to 20k</a>, just to make sure Gateloop doesn't get exceeded later on
 
+## Appreciation
+
+- <a href="https://stability.ai/">StabilityAI</a>, <a href="https://a16z.com/supporting-the-open-source-ai-community/">A16Z Open Source AI Grant Program</a>, and <a href="https://huggingface.co/">🤗 Huggingface</a> for the generous sponsorships, as well as my other sponsors, for affording me the independence to open source current artificial intelligence research
+
 ### Install
 
 ```bash
