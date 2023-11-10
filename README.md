@@ -55,7 +55,13 @@ $ python train.py
 
 ### Todo
 
-- [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
+- [ ] experiments
+    - [ ] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
+    - [ ] do complete runs between transformer + rotary against gateloop with max heads, parameter held constant to 20k steps
+
+- [ ] jax version with equinox
+- [ ] start looking into torch jit + associative scan, make it work
+- [ ] separate out gateloop transformer from the full causal transformer once experiment is complete. do a single concise file for gateloop
 
 - [x] start with naive memory checkpointing of gate loop operation
 - [x] retry the failed full attention experiments (with data dependent xpos), but with complex valued scales (didn't work)
