@@ -21,6 +21,17 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
+def Sequential(*modules):
+    modules = list(filter(exists, modules))
+    num_modules = len(modules)
+
+    if num_modules == 0:
+        return nn.Identity()
+    elif num_modules == 1:
+        return modules[0]
+
+    return nn.Sequential(*modules)
+
 # rms norm
 
 class RMSNorm(Module):
@@ -32,12 +43,31 @@ class RMSNorm(Module):
     def forward(self, x):
         return F.normalize(x, dim = -1) * self.scale * self.gamma
 
+# norm wrappers
+
+class PreNorm(Module):
+    def __init__(self, dim, fn: Module):
+        super().__init__()
+        self.fn = fn
+        self.norm = RMSNorm(dim)
+
+    def forward(self, x, **kwargs):
+        return self.fn(self.norm(x), **kwargs) + x
+
+class PostNorm(Module):
+    def __init__(self, dim, fn: Module):
+        super().__init__()
+        self.fn = fn
+        self.norm = nn.LayerNorm(dim)
+
+    def forward(self, x, **kwargs):
+        return self.norm(self.fn(x, **kwargs) + x)
+
 # feedforward
 
 def FeedForward(dim, mult = 4):
     dim_inner = dim * mult
     return nn.Sequential(
-        RMSNorm(dim),
         nn.Linear(dim, dim_inner),
         nn.GELU(),
         nn.Linear(dim_inner, dim)
@@ -63,8 +93,6 @@ class CausalFullAttention(Module):
         self.softmax_normalize = default(softmax_normalize, not data_dependent_rel_pos)
 
         self.scale = dim_head ** -0.5
-
-        self.norm = RMSNorm(dim)
 
         self.rotary_emb = RotaryEmbedding(dim_head) if rotary_emb else None
 
@@ -102,8 +130,6 @@ class CausalFullAttention(Module):
         ablate_complex = False,
         ablate_state_transition = False
     ):
-        x = self.norm(x)
-
         q, k, v = self.to_qkv(x)
 
         if exists(self.rotary_emb):
@@ -197,8 +223,6 @@ class GateLoopedAttention(Module):
         dim_inner = default(dim_inner, dim)
         heads = default(heads, dim_inner)
 
-        self.norm = RMSNorm(dim)
-
         self.heads = heads
         assert (dim_inner % heads) == 0, f'dimension for gate looped attention {dim_inner} must be divisible by number of gate loop heads {heads}'
 
@@ -230,8 +254,6 @@ class GateLoopedAttention(Module):
         ablate_state_transition = False
     ):
         frac_gradient = self.frac_gradient_state_transition
-
-        x = self.norm(x)
 
         q, k, v = self.to_qkv(x).chunk(3, dim = -1)
 
@@ -289,7 +311,8 @@ class Transformer(Module):
         frac_gradient_state_transition = 0.9,
         ablate_complex = False,
         ablate_state_transition = False,
-        rotary_emb = False
+        rotary_emb = False,
+        post_ln_norm = False
     ):
         super().__init__()
         self.ablate_complex = ablate_complex
@@ -298,6 +321,8 @@ class Transformer(Module):
         self.token_emb = nn.Embedding(num_tokens, dim)
 
         layers = ModuleList([])
+
+        layer_wrapper = PreNorm if not post_ln_norm else PostNorm
 
         for _ in range(depth):
 
@@ -322,18 +347,20 @@ class Transformer(Module):
                     frac_gradient_data_dependent_rel_pos = frac_gradient_state_transition
                 )
 
+            channelwise_mixer = FeedForward(
+                dim = dim,
+                mult = ff_mult
+            )
+
             layers.append(ModuleList([
-                spatial_mixer,
-                FeedForward(
-                    dim = dim,
-                    mult = ff_mult
-                )
+                layer_wrapper(dim, spatial_mixer),
+                layer_wrapper(dim, channelwise_mixer)
             ]))
 
         self.layers = ModuleList(layers)
 
-        self.to_logits = nn.Sequential(
-            RMSNorm(dim),
+        self.to_logits = Sequential(
+            RMSNorm(dim) if not post_ln_norm else None,
             nn.Linear(dim, num_tokens, bias = False)
         )
 
@@ -357,9 +384,9 @@ class Transformer(Module):
                 x,
                 ablate_complex = ablate_complex,
                 ablate_state_transition = ablate_state_transition
-            ) + x
+            )
 
-            x = ff(x) + x
+            x = ff(x)
 
         logits = self.to_logits(x)
 

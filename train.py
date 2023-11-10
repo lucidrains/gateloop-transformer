@@ -143,7 +143,8 @@ hparams = dict(
     attn_softmax_normalize = True,
     ablate_complex = False,
     ablate_state_transition = False,
-    rotary_emb = False
+    rotary_emb = False,
+    post_ln_norm = True
 )
 
 model = Transformer(**hparams)
