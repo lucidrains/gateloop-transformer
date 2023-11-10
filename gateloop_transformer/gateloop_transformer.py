@@ -193,6 +193,8 @@ class GateLoopedAttention(Module):
         self.norm = RMSNorm(dim)
 
         self.heads = heads
+        assert (dim_inner % heads) == 0, f'dimension for gate looped attention {dim_inner} must be divisible by number of gate loop heads {heads}'
+
         self.split_heads = Rearrange('b n (h d) -> (b h) n d', h = heads)
 
         self.to_qkv = nn.Linear(dim, dim_inner * 3, bias = False)
