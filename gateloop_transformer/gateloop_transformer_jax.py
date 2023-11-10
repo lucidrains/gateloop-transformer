@@ -1,12 +1,9 @@
 from typing import List, Tuple, Callable
 
-import numpy as onp
 from jax import random, jit, nn, lax, numpy as np
 from jax.lax import associative_scan
 
 from equinox import Module, static_field
-
-from einops import rearrange, repeat
 
 # linear
 
@@ -41,14 +38,17 @@ class RMSNorm(Module):
 
 # gate loop layer
 
-def gate_loop_operator(kv, q, a):
+def gate_loop_operator(k, v, q, a):
+
+    kv = k * v
 
     def binary_operator(e_i, e_j):
         a_i, kv_i = e_i
         a_j, kv_j = e_j
-        return a_j * a_i, a_j * kv_i + kv_j
+        return a_j * a_i, np.real(a_j) * kv_i + kv_j
 
     _, y = associative_scan(binary_operator, (a, kv), axis = 1)
+
     return q * y
 
 class GateLoop(Module):
@@ -76,14 +76,14 @@ class GateLoop(Module):
 
         q_key, k_key, v_key, a_key, g_key, o_key = random.split(key, 6)
 
+        self.norm = RMSNorm(dim)
+
         self.wq = random.normal(q_key, (dim, dim))
         self.wk = random.normal(k_key, (dim, dim))
         self.wv = random.normal(v_key, (dim, dim))
-        self.wa = random.normal(a_key, (dim, dim))
+        self.wa = random.normal(a_key, (dim, dim * 2))
         self.wg = random.normal(g_key, (dim, dim))
         self.wo = random.normal(o_key, (dim, dim))
-
-        self.norm = RMSNorm(dim)
 
     def __call__(self, x):
         x = self.norm(x)
@@ -93,12 +93,24 @@ class GateLoop(Module):
         v = x @ self.wv
         a = x @ self.wa
         g = x @ self.wg
-        o = x @ self.wo
 
-        kv = k * v
-        a = nn.sigmoid(a)
+        # constitute the complex state transitions
+        # magnitude is sigmoided
 
-        y = gate_loop_operator(kv, q, a)
+        a_real, a_imag = np.split(a, 2, axis = -1)
+
+        a_complex = lax.complex(a_real, a_imag)
+
+        magnitude, phase = np.abs(a_complex), np.angle(a_complex)
+        magnitude = nn.sigmoid(magnitude)
+
+        a_complex = magnitude * np.exp(1j * phase)
+
+        # associative scan with complex states
+
+        y = gate_loop_operator(k, v, q, a_complex)
+
+        # author hinted at adopting retnet's silu gating, which in turn comes from the g-mlp paper
 
         y = y * nn.silu(g)
 
@@ -118,7 +130,7 @@ class FeedForward(Module):
         *,
         dim,
         key,
-        mult = 4,
+        mult = 4
     ):
         self.norm = RMSNorm(dim)
         self.proj_in = Linear(dim, dim * mult, key = key)
@@ -143,9 +155,7 @@ class GateLoopTransformer(Module):
         *,
         num_tokens,
         dim,
-        dim_head,
         depth,
-        heads,
         key,
         ff_mult = 4
     ):
@@ -176,3 +186,21 @@ class GateLoopTransformer(Module):
         logits = x @ self.embedding.transpose()
 
         return logits
+
+# quick run
+
+if __name__ == '__main__':
+    import jax
+    key = jax.random.PRNGKey(0)
+
+    model = GateLoopTransformer(
+        num_tokens = 20000,
+        dim = 512,
+        depth = 12,
+        key = key
+    )
+
+    seq = jax.random.randint(key, (1024,), 0, 20000)
+    logits = model(seq)
+
+    print(logits.shape) # (1024, 20000)
