@@ -11,13 +11,6 @@ from typing import Tuple, Callable
 
 # helper functions
 
-def safe_map(f, *args):
-    args = list(map(list, args))
-    n = len(args[0])
-    for arg in args[1:]:
-        assert len(arg) == n, f'length mismatch: {list(map(len, args))}'
-    return list(map(f, *args))
-
 def pad_at_dim(t, pad, dim = -1, value = 0.):
     dims_from_right = (- dim - 1) if dim < 0 else (t.ndim - dim - 1)
     zeros = ((0, 0) * dims_from_right)
@@ -70,7 +63,7 @@ def associative_scan(
           torch.cat([elem[:, :1], result], dim=1)
           for (elem, result) in zip(elems, even_elems)]
 
-        return list(safe_map(_interleave, even_elems, odd_elems))
+        return list(map(_interleave, even_elems, odd_elems))
 
     return _scan(elems)
 
