@@ -16,6 +16,8 @@ Update 5: Author has reviewed the code, and there was another misunderstanding. 
 
 Update 6: Corrected gateloop transformer run looks amazing. Cautiously optimistic now.
 
+Update 7: Ablating state transition shows expected negative result. Ablating complex valued states though, I see no difference, at least, early in the run.
+
 ### Install
 
 ```bash
