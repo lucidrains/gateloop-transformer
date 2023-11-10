@@ -6,7 +6,7 @@ import numpy as np
 from functools import wraps, partial
 
 import torch
-from torch.optim import Adam
+from torch.optim import Adam, AdamW
 from torch import Tensor
 from torch.nn import Module, functional as F
 from torch.utils.data import DataLoader, Dataset
@@ -21,6 +21,7 @@ NUM_BATCHES = int(1e5)
 BATCH_SIZE = 4
 GRAD_ACCUM_EVERY = 4
 LEARNING_RATE = 1e-4
+WEIGHT_DECAY = 0.
 VALIDATE_EVERY = 100
 PRIME_LENGTH = 128
 GENERATE_EVERY = 500
@@ -91,6 +92,45 @@ def base_decoding(
 
     return out[..., prompt_seq_len:]
 
+# optimizer
+
+def separate_weight_decayable_params(params):
+    wd_params, no_wd_params = [], []
+
+    for param in params:
+        param_list = no_wd_params if param.ndim < 2 else wd_params
+        param_list.append(param)
+
+    return wd_params, no_wd_params
+
+def get_optimizer(
+    params,
+    lr = 1e-4,
+    wd = 0.,
+    betas = (0.9, 0.99),
+    eps = 1e-8,
+    group_wd_params = True,
+    **kwargs
+):
+    opt_kwargs = dict(lr = lr, betas = betas, eps = eps)
+
+    if wd == 0:
+        return Adam(params, **opt_kwargs)
+
+    opt_kwargs = {'weight_decay': wd, **opt_kwargs}
+
+    if not group_wd_params:
+        return AdamW(params, **opt_kwargs)
+
+    wd_params, no_wd_params = separate_weight_decayable_params(params)
+
+    params = [
+        {'params': wd_params},
+        {'params': no_wd_params, 'weight_decay': 0},
+    ]
+
+    return AdamW(params, **opt_kwargs)
+
 # instantiate transformer
 
 hparams = dict(
@@ -116,7 +156,7 @@ print(f'number of parameters: {num_parameters}')
 wandb_config = {**hparams, 'num_parameters': num_parameters}
 accelerator.init_trackers(PROJECT_NAME, config = wandb_config)
 
-if WANDB and exists(RUN_NAME):
+if WANDB and exists(RUN_NAME) and len(accelerator.trackers) > 0:
     accelerator.trackers[0].run.name = RUN_NAME
 
 # prepare enwik8 data
@@ -147,7 +187,11 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE)
 
 # optimizer
 
-optim = Adam(model.parameters(), lr = LEARNING_RATE)
+optim = get_optimizer(
+    model.parameters(),
+    lr = LEARNING_RATE,
+    wd = WEIGHT_DECAY
+)
 
 # prepare
 
