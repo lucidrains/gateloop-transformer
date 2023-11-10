@@ -181,6 +181,7 @@ class GateLoopedAttention(Module):
         heads = None,
         dim_inner = None,
         checkpoint_gate_looped_attn = True,
+        add_swish_gating = True,
         frac_gradient_state_transition = 0.9
     ):
         super().__init__()
@@ -206,6 +207,16 @@ class GateLoopedAttention(Module):
 
         self.merge_heads = Rearrange('(b h) n d -> b n (h d)', h = heads)
         self.to_out = nn.Linear(dim_inner, dim, bias = False) if dim_inner != dim else nn.Identity()
+
+        self.add_swish_gating = add_swish_gating
+
+        if add_swish_gating:
+            self.to_gates = nn.Sequential(
+                nn.Linear(dim, dim_inner, bias = False),
+                nn.SiLU()
+            )
+
+            self.to_out = nn.Linear(dim_inner, dim, bias = False)
 
     def forward(
         self,
@@ -239,6 +250,10 @@ class GateLoopedAttention(Module):
         out = fn(q, k, v, a)
 
         out = self.merge_heads(out)
+
+        if self.add_swish_gating:
+            out = self.to_gates(x) * out
+
         return self.to_out(out)
 
 # main class
@@ -256,6 +271,7 @@ class Transformer(Module):
         checkpoint_gate_looped_attn = True,
         use_gate_looped_attn = True,
         gate_loop_heads = None,
+        gate_loop_add_swish_gating = True,
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
@@ -279,6 +295,7 @@ class Transformer(Module):
                     dim = dim,
                     heads = gate_loop_heads,
                     dim_inner = dim_gate_looped_attn,
+                    add_swish_gating = gate_loop_add_swish_gating,
                     checkpoint_gate_looped_attn = checkpoint_gate_looped_attn,
                     frac_gradient_state_transition = frac_gradient_state_transition
                 )
