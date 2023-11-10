@@ -200,8 +200,8 @@ class GateLoopedAttention(Module):
         self.to_qkv = nn.Linear(dim, dim_inner * 3, bias = False)
 
         self.to_a = nn.Sequential(
-            nn.Linear(dim, dim_inner * 2),
-            Rearrange('b n (h d c) -> (b h) n d c', h = heads, c = 2)
+            nn.Linear(dim, heads * 2),
+            Rearrange('b n (h c) -> (b h) n 1 c', h = heads, c = 2)
         )
 
         self.merge_heads = Rearrange('(b h) n d -> b n (h d)', h = heads)
