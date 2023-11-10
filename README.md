@@ -14,6 +14,8 @@ Update 4: <a href="https://api.wandb.ai/links/lucidrains/ysbz84fn">Ongoing exper
 
 Update 5: Author has reviewed the code, and there was another misunderstanding. They use maximum heads (heads == dimension). This is kind of a plot twist, as this is infeasible for normal attention. It also obviates the need a fused CUDA kernel as in autoregressive linear attention.
 
+Update 6: Corrected gateloop transformer run looks amazing. Cautiously optimistic now.
+
 ### Install
 
 ```bash
