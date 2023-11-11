@@ -24,7 +24,8 @@ Update 9: <a href="https://api.wandb.ai/links/lucidrains/do1i9rx0">Head to head 
 
 Update 10: and it got passed by attention, at least, assuming the implementation in the repo is correct.
 
-## Appreciation
+
+### Appreciation
 
 - <a href="https://stability.ai/">StabilityAI</a>, <a href="https://a16z.com/supporting-the-open-source-ai-community/">A16Z Open Source AI Grant Program</a>, and <a href="https://huggingface.co/">🤗 Huggingface</a> for the generous sponsorships, as well as my other sponsors, for affording me the independence to open source current artificial intelligence research
 
