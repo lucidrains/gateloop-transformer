@@ -24,6 +24,7 @@ Update 9: <a href="https://api.wandb.ai/links/lucidrains/do1i9rx0">Head to head 
 
 Update 10: and it got passed by attention, at least, assuming the implementation in the repo is correct.
 
+Update 11: I'm seeing a steady improvement increasing the head dimension, so I no longer believe max-heads is optimal. Increasing the head dimension brings us right back to linear attention and needing the fused CUDA kernel.
 
 ### Appreciation
 
