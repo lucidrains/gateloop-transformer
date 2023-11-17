@@ -189,6 +189,12 @@ class CausalFullAttention(Module):
 
 # data gated linear attention with "gateloop operator"
 
+def maybe_real(t):
+    if not torch.is_complex(t):
+        return t
+
+    return t.real
+
 def gate_loop_operator(q, k, v, a):
     """
     the pseudocode in section 3.2 of the paper
@@ -200,7 +206,7 @@ def gate_loop_operator(q, k, v, a):
         a_i, kv_i = a
         a_j, kv_j = b
 
-        return a_j * a_i, a_j.real * kv_i + kv_j
+        return a_j * a_i, maybe_real(a_j) * kv_i + kv_j
 
     _, kv = associative_scan(binary_operator, (a, kv))
 
