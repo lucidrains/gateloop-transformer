@@ -73,12 +73,10 @@ $ python train.py
 - [x] start with naive memory checkpointing of gate loop operation
 - [x] retry the failed full attention experiments (with data dependent xpos), but with complex valued scales (didn't work)
 - [x] separate out a minimal gateloop circuit, to augment attention, rather than to replace it, as done in <a href="https://arxiv.org/abs/2209.10655">Mega</a>
-
-- [ ] experiments
+- [x] experiments
     - [x] do all the ablations and figure out how much the data controlled state transitions adds (as well as whether it needs to be complex)
     - [x] do complete runs between transformer + rotary against gateloop with max heads, parameter held constant to 20k steps
-
-- [ ] start looking into torch jit + associative scan, make it work
+- [x] just use jax's associative scan, wrapped with jax2torch, for now. pytorch team claim they will implement <a href="https://github.com/pytorch/pytorch/issues/95408">this</a> eventually
 
 ## Citations
 
