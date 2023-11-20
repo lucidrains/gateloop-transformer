@@ -17,13 +17,38 @@ def gate_loop_operator(q, kv, a):
 
     return q * kv
 
+def get_jax_gate_loop_operator():
+    try:
+        from jax import jit, numpy as jnp
+        from jax.lax import associative_scan
+        from jax2torch import jax2torch
+    except ImportError as e:
+        print(f'jax and jax2torch must be installed - `pip install jax2torch`')
+
+    @jit
+    def jax_gate_loop_operator(q, kv, a):
+        def binary_operator(e_i, e_j):
+            a_i, kv_i = e_i
+            a_j, kv_j = e_j
+            return a_j * a_i, a_j * kv_i + kv_j
+
+        _, y = associative_scan(binary_operator, (a, kv), axis = 1)
+
+        return q * y
+
+    return jax2torch(jax_gate_loop_operator)
+
 class SimpleGateLoopLayer(Module):
     """
     simplified gate loop
     seeing if it can supplement attention as shown in https://github.com/lucidrains/mega-pytorch
     """
 
-    def __init__(self, dim):
+    def __init__(
+        self,
+        dim,
+        use_jax_associative_scan = False
+    ):
         super().__init__()
         self.norm = RMSNorm(dim)
 
@@ -34,6 +59,11 @@ class SimpleGateLoopLayer(Module):
             Rearrange('b n (qkva d) -> qkva (b d) n 1', qkva = 3)
         )
 
+        if use_jax_associative_scan:
+            self.gate_loop_fn = get_jax_gate_loop_operator()
+        else:
+            self.gate_loop_fn = gate_loop_operator
+
         self.split_heads = Rearrange('(b d) n 1 -> b n d', d = dim)
 
     def forward(self, x):
@@ -41,6 +71,6 @@ class SimpleGateLoopLayer(Module):
 
         q, kv, a = self.to_qkva(x)
 
-        out = gate_loop_operator(q, kv, a.sigmoid())
+        out = self.gate_loop_fn(q, kv, a.sigmoid())
 
         return self.split_heads(out)
