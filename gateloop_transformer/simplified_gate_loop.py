@@ -47,10 +47,11 @@ class SimpleGateLoopLayer(Module):
     def __init__(
         self,
         dim,
+        prenorm = True,
         use_jax_associative_scan = False
     ):
         super().__init__()
-        self.norm = RMSNorm(dim)
+        self.norm = RMSNorm(dim) if prenorm else nn.Identity()
 
         self.dim = dim
 
