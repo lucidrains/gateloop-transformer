@@ -1,5 +1,8 @@
-from torch import nn
+import torch
+from torch import nn, Tensor
 from torch.nn import Module
+
+from typing import Tuple
 
 from einops import rearrange
 from einops.layers.torch import Rearrange
@@ -7,15 +10,24 @@ from einops.layers.torch import Rearrange
 from gateloop_transformer.gateloop_transformer import RMSNorm
 from gateloop_transformer.associative_scan import associative_scan
 
+# plain pytorch non-fused associative scan
+
 def gate_loop_operator(q, kv, a):
-    def binary_operator(a, b):
+
+    @torch.jit.script
+    def binary_operator(
+        a: Tuple[Tensor, Tensor],
+        b: Tuple[Tensor, Tensor]
+    ):
         a_i, kv_i = a
         a_j, kv_j = b
-        return a_j * a_i, a_j * kv_i + kv_j
+        return a_j * a_i, torch.addcmul(kv_j, a_j, kv_i)
 
     _, kv = associative_scan(binary_operator, (a, kv))
 
     return q * kv
+
+# using jax associative scan
 
 def get_jax_gate_loop_operator():
     try:
@@ -38,6 +50,8 @@ def get_jax_gate_loop_operator():
 
     return jax2torch(jax_gate_loop_operator)
 
+# simple gate loop layer
+
 class SimpleGateLoopLayer(Module):
     """
     simplified gate loop
@@ -48,7 +62,8 @@ class SimpleGateLoopLayer(Module):
         self,
         dim,
         prenorm = True,
-        use_jax_associative_scan = False
+        use_jax_associative_scan = False,
+        reverse = False
     ):
         super().__init__()
         self.norm = RMSNorm(dim) if prenorm else nn.Identity()
@@ -67,11 +82,22 @@ class SimpleGateLoopLayer(Module):
 
         self.split_heads = Rearrange('(b d) n 1 -> b n d', d = dim)
 
+        self.reverse = reverse
+
     def forward(self, x):
+
+        if self.reverse:
+            x = torch.flip(x, dims = (-2,))
+
         x = self.norm(x)
 
         q, kv, a = self.to_qkva(x)
 
         out = self.gate_loop_fn(q, kv, a.sigmoid())
 
-        return self.split_heads(out)
+        out = self.split_heads(out)
+
+        if self.reverse:
+            out = torch.flip(out, dims = (-2,))
+
+        return out
