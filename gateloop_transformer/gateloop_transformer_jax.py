@@ -40,16 +40,16 @@ class RMSNorm(Module):
 
 def gate_loop_operator(k, v, q, a):
 
-    kv = k * v
+    kv = k * v + 0.j
 
     def binary_operator(e_i, e_j):
         a_i, kv_i = e_i
         a_j, kv_j = e_j
-        return a_j * a_i, np.real(a_j) * kv_i + kv_j
+        return a_j * a_i, a_j * kv_i + kv_j
 
     _, y = associative_scan(binary_operator, (a, kv), axis = 1)
 
-    return q * y
+    return q * np.real(y)
 
 class GateLoop(Module):
     norm: RMSNorm
