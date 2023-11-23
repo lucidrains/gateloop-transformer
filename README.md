@@ -26,6 +26,8 @@ Update 10: and it got passed by attention, at least, assuming the implementation
 
 Update 11: I'm seeing a steady improvement increasing the head dimension, so I no longer believe max-heads is optimal. Increasing the head dimension brings us right back to linear attention and needing the fused CUDA kernel.
 
+Update 12: <a href="https://github.com/cnapun">Nikil</a> spotted a potential error with the `kv` not being kept in complex (and real component taken at end). Rerunning experiments!
+
 ### Appreciation
 
 - <a href="https://stability.ai/">StabilityAI</a>, <a href="https://a16z.com/supporting-the-open-source-ai-community/">A16Z Open Source AI Grant Program</a>, and <a href="https://huggingface.co/">🤗 Huggingface</a> for the generous sponsorships, as well as my other sponsors, for affording me the independence to open source current artificial intelligence research
