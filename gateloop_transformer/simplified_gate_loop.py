@@ -50,17 +50,26 @@ def get_jax_gate_loop_operator():
         print(f'jax and jax2torch must be installed - `pip install jax2torch`')
 
     @jit
-    def jax_gate_loop_operator(q, kv, a):
+    def jax_gate_loop_operator(q, kv, a, cache = None):
         def binary_operator(e_i, e_j):
             a_i, kv_i = e_i
             a_j, kv_j = e_j
             return a_j * a_i, a_j * kv_i + kv_j
 
+        if exists(cache):
+            cache_a, cache_kv = cache
+            a, a_ps = pack([cache_a, a], 'b * d')
+            kv, kv_ps = pack([cache_kv, kv], 'b * d')
+
         _, y = associative_scan(binary_operator, (a, kv), axis = 1)
 
-        return q * y
+        if exists(cache):
+            _, a = unpack(a, a_ps, 'b * d')
+            _, kv = unpack(kv, kv_ps, 'b * d')
 
-    return jax2torch(jax_gate_loop_operator), None
+        return q * y, (a[:, -1], kv[:, -1])
+
+    return jax2torch(jax_gate_loop_operator)
 
 # simple gate loop layer
 
@@ -122,6 +131,5 @@ class SimpleGateLoopLayer(Module):
             return out
 
         assert not self.reverse, 'caching only works with non-reversed seq'
-        assert not self.use_jax, 'jax associative scan does not have caching yet'
 
         return out, cache
