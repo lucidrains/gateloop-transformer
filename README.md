@@ -91,3 +91,12 @@ $ python train.py
     url     = {https://api.semanticscholar.org/CorpusID:265018962}
 }
 ```
+
+```bibtex
+@inproceedings{Heinsen2023EfficientPO,
+    title   = {Efficient Parallelization of a Ubiquitous Sequential Computation},
+    author  = {Franz A. Heinsen},
+    year    = {2023},
+    url     = {https://api.semanticscholar.org/CorpusID:265213659}
+}
+```

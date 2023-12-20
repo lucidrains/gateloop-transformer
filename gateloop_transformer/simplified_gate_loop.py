@@ -1,3 +1,5 @@
+from functools import partial
+
 import torch
 from torch import nn, Tensor
 from torch.nn import Module
@@ -15,23 +17,47 @@ from gateloop_transformer.associative_scan import associative_scan
 def exists(v):
     return v is not None
 
-def gate_loop_operator(q, kv, a, cache = None):
+def abs_clamp_eps(t, eps = 1e-20):
+    sign = torch.sign(t)
+    return sign * t.abs().clamp(min = eps)
 
-    @torch.jit.script
-    def binary_operator(
-        a: Tuple[Tensor, Tensor],
-        b: Tuple[Tensor, Tensor]
-    ):
-        a_i, kv_i = a
-        a_j, kv_j = b
-        return a_j * a_i, torch.addcmul(kv_j, a_j, kv_i)
+# associative scan using heinsen sequences
+# https://github.com/glassroom/heinsen_sequence
+# graciously shared to the world by Franz A. Heinsen in https://arxiv.org/abs/2311.06281 in October 2023
+
+def heinsen_associative_scan(a, kv):
+    log_a = a.clamp(min = 1e-20).log()
+    log_kv = abs_clamp_eps(kv).to(dtype = torch.complex64).log()
+
+    a_star = torch.cumsum(log_a, dim = 1)
+    log_x0_plus_b_star = torch.logcumsumexp(log_kv - a_star, dim = 1)
+    log_x = a_star + log_x0_plus_b_star
+    return a_star.exp().real, log_x.exp().real
+
+# naive associative scan with some torchscript of binary operator
+
+@torch.jit.script
+def binary_operator(
+    a: Tuple[Tensor, Tensor],
+    b: Tuple[Tensor, Tensor]
+):
+    a_i, kv_i = a
+    a_j, kv_j = b
+    return a_j * a_i, torch.addcmul(kv_j, a_j, kv_i)
+
+# gate loop operator
+
+def gate_loop_operator(q, kv, a, cache = None, heinsen = False):
 
     if exists(cache):
         cache_a, cache_kv = cache
         a, a_ps = pack([cache_a, a], 'b * d')
         kv, kv_ps = pack([cache_kv, kv], 'b * d')
 
-    a, kv = associative_scan(binary_operator, (a, kv))
+    if heinsen:
+        a, kv = heinsen_associative_scan(a, kv)
+    else:
+        a, kv = associative_scan(binary_operator, (a, kv))
 
     if exists(cache):
         _, a = unpack(a, a_ps, 'b * d')
@@ -83,10 +109,13 @@ class SimpleGateLoopLayer(Module):
         self,
         dim,
         prenorm = True,
+        use_heinsen = False,
         use_jax_associative_scan = False,
         reverse = False
     ):
         super().__init__()
+        assert (int(use_heinsen) + int(use_jax_associative_scan)) <= 1
+
         self.norm = RMSNorm(dim) if prenorm else nn.Identity()
 
         self.dim = dim
@@ -96,10 +125,13 @@ class SimpleGateLoopLayer(Module):
             Rearrange('b n (qkva d) -> qkva (b d) n 1', qkva = 3)
         )
 
+        self.use_heinsen = use_heinsen
         self.use_jax = use_jax_associative_scan
 
         if use_jax_associative_scan:
             self.gate_loop_fn = get_jax_gate_loop_operator()
+        elif use_heinsen:
+            self.gate_loop_fn = partial(gate_loop_operator, heinsen = True)
         else:
             self.gate_loop_fn = gate_loop_operator
 
