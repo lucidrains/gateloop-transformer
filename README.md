@@ -59,6 +59,17 @@ ids = torch.randint(0, 256, (1, 1024))
 logits = model(ids) # (1, 1024, 256)
 ```
 
+A simplified gate loop layer
+
+```python
+import torch
+from gateloop_transformer import SimpleGateLoopLayer
+
+gateloop = SimpleGateLoopLayer(512)
+
+x = torch.randn(1, 65536, 512)
+x = gateloop(x) + x
+```
 ### Character-level Language Modeling
 
 Install requirements
