@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
   name = 'gateloop-transformer',
   packages = find_packages(exclude=[]),
-  version = '0.2.1',
+  version = '0.2.2',
   license='MIT',
   description = 'GateLoop Transformer',
   author = 'Phil Wang',
@@ -18,7 +18,7 @@ setup(
   install_requires=[
     'einops>=0.7.0',
     'rotary-embedding-torch',
-    'torch>=2.0',
+    'torch>=2.1',
   ],
   classifiers=[
     'Development Status :: 4 - Beta',
