@@ -26,8 +26,11 @@ Update 10: and it got passed by attention, at least, assuming the implementation
 
 Update 11: I'm seeing a steady improvement increasing the head dimension, so I no longer believe max-heads is optimal. Increasing the head dimension brings us right back to linear attention and needing the fused CUDA kernel.
 
-Update 12: <a href="https://github.com/cnapun">Nikil</a> spotted a potential error with the `kv` not being kept in complex (and real component taken at end). <a href="https://api.wandb.ai/links/lucidrains/lgz368mf">Rerunning experiments</a> (update: still clearly worse.)!
+Update 12: <a href="https://github.com/cnapun">Nikil</a> spotted a potential error with the `kv` not being kept in complex (and real component taken at end). <a href="https://api.wandb.ai/links/lucidrains/lgz368mf">Rerunning experiments</a>
 
+Update 13: Still clearly worse
+
+Update 14: See some synergy when mixing gateloop and attention on a small scale, when holding parameters constant. Will be adding a tiny bit of simplified gateloop layers to transformers to address a main weakness in attention for future projects.
 
 ### Appreciation
 
