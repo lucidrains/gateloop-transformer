@@ -109,7 +109,7 @@ class SimpleGateLoopLayer(Module):
         self,
         dim,
         prenorm = True,
-        use_heinsen = True,
+        use_heinsen = False,
         use_jax_associative_scan = False,
         reverse = False
     ):
