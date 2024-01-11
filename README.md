@@ -32,6 +32,8 @@ Update 13: Still clearly worse
 
 Update 14: See some synergy when mixing gateloop and attention on a small scale, when holding parameters constant. Will be adding a tiny bit of simplified gateloop layers to transformers to address a main weakness in attention for future projects.
 
+Update 15: There may be a way to combine associative scan based works with the findings from the recently proposed <a href="https://arxiv.org/abs/2312.04927">taylor series linear attention</a>. will carry out some independent research before end of January 2024 and share the results here.
+
 ### Appreciation
 
 - <a href="https://stability.ai/">StabilityAI</a>, <a href="https://a16z.com/supporting-the-open-source-ai-community/">A16Z Open Source AI Grant Program</a>, and <a href="https://huggingface.co/">🤗 Huggingface</a> for the generous sponsorships, as well as my other sponsors, for affording me the independence to open source current artificial intelligence research
