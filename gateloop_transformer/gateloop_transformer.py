@@ -13,6 +13,8 @@ from rotary_embedding_torch import RotaryEmbedding
 
 from gateloop_transformer.associative_scan import associative_scan
 
+from taylor_series_linear_attention.attention import second_taylor_expansion
+
 # helpers
 
 def exists(v):
@@ -215,6 +217,7 @@ class GateLoopedAttention(Module):
         checkpoint_gate_looped_attn = True,
         add_swish_gating = True,
         sub_ln = False,
+        second_taylor_qk = False,
         frac_gradient_state_transition = 0.9
     ):
         super().__init__()
@@ -223,6 +226,8 @@ class GateLoopedAttention(Module):
 
         dim_inner = default(dim_inner, dim)
         heads = default(heads, dim_inner)
+
+        self.second_taylor_qk = second_taylor_qk
 
         self.heads = heads
         assert (dim_inner % heads) == 0, f'dimension for gate looped attention {dim_inner} must be divisible by number of gate loop heads {heads}'
@@ -262,6 +267,9 @@ class GateLoopedAttention(Module):
 
         q, k, v = map(self.split_heads, (q, k, v))
 
+        if self.second_taylor_qk:
+            q, k = map(second_taylor_expansion, (q, k))
+
         a = self.to_a(x)
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
 
@@ -281,7 +289,7 @@ class GateLoopedAttention(Module):
 
         need_backwards = any([t.requires_grad for t in (q, k, v, a)])
 
-        fn = partial(checkpoint, gate_loop_operator) if need_backwards and self.checkpoint_gate_looped_attn else gate_loop_operator
+        fn = partial(checkpoint, gate_loop_operator, use_reentrant = False) if need_backwards and self.checkpoint_gate_looped_attn else gate_loop_operator
 
         out = fn(q, k, v, a)
 
@@ -310,6 +318,7 @@ class Transformer(Module):
         use_gate_looped_attn = True,
         gate_loop_heads = None,
         attn_add_swish_gating = True,
+        second_taylor_qk = False,
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
@@ -339,6 +348,7 @@ class Transformer(Module):
                     dim_inner = dim_gate_looped_attn,
                     add_swish_gating = attn_add_swish_gating,
                     sub_ln = sub_ln,
+                    second_taylor_qk = second_taylor_qk,
                     checkpoint_gate_looped_attn = checkpoint_gate_looped_attn,
                     frac_gradient_state_transition = frac_gradient_state_transition
                 )
