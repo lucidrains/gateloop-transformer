@@ -273,7 +273,6 @@ class GateLoopedAttention(Module):
         q, k, v = map(self.split_heads, (q, k, v))
 
         q, k = map(second_taylor_expansion, (q, k))
-        _gate_loop_operator = partial(gate_loop_operator, normalize = True)
 
         a = self.to_a(x)
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
@@ -294,9 +293,7 @@ class GateLoopedAttention(Module):
 
         need_backwards = any([t.requires_grad for t in (q, k, v, a)])
 
-        fn = partial(checkpoint, _gate_loop_operator, use_reentrant = False) if need_backwards and self.checkpoint_gate_looped_attn else gate_loop_operator
-
-        out = fn(q, k, v, a)
+        out = gate_loop_operator(q, k, v, a, normalize = True)
 
         out = self.merge_heads(out)
 
