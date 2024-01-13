@@ -191,7 +191,7 @@ class CausalFullAttention(Module):
 
 # data gated linear attention with "gateloop operator"
 
-def gate_loop_operator(q, k, v, a):
+def gate_loop_operator(q, k, v, a, normalize = False):
     """
     the pseudocode in section 3.2 of the paper
     """
@@ -204,9 +204,21 @@ def gate_loop_operator(q, k, v, a):
         a_j, kv_j = b
         return a_j * a_i, a_j * kv_i + kv_j
 
-    _, kv = associative_scan(binary_operator, (a, kv))
+    a_kv = rearrange(a, '... n -> ... n 1 1')
 
-    return einsum('b n d, b n d e -> b n e', q, kv.real)
+    _, kv = associative_scan(binary_operator, (a_kv, kv))
+
+    if normalize:
+        k = k + 0.j
+        a_k = rearrange(a, '... n -> ... n 1')
+
+        _, k = associative_scan(binary_operator, (a_k, k))
+        qk_inv = 1. / einsum('b n d, b n d -> b n', q, k)
+
+        kv = kv * rearrange(qk_inv, 'b n -> b n 1 1')
+
+    out = einsum('b n d, b n d e -> b n e', q, kv.real)
+    return out
 
 class GateLoopedAttention(Module):
     def __init__(
@@ -238,7 +250,7 @@ class GateLoopedAttention(Module):
 
         self.to_a = nn.Sequential(
             nn.Linear(dim, heads * 2),
-            Rearrange('b n (h c) -> (b h) n 1 1 c', h = heads, c = 2)
+            Rearrange('b n (h c) -> (b h) n c', h = heads, c = 2)
         )
 
         self.merge_heads = Rearrange('(b h) n d -> b n (h d)', h = heads)
@@ -267,8 +279,11 @@ class GateLoopedAttention(Module):
 
         q, k, v = map(self.split_heads, (q, k, v))
 
+        _gate_loop_operator = gate_loop_operator
+
         if self.second_taylor_qk:
             q, k = map(second_taylor_expansion, (q, k))
+            _gate_loop_operator = partial(gate_loop_operator, normalize = True)
 
         a = self.to_a(x)
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
