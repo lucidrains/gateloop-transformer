@@ -197,30 +197,24 @@ def gate_loop_operator(q, k, v, a, normalize = False, eps = 1e-5):
     """
 
     kv = einsum('b n d, b n e -> b n d e', k, v)
+
     kv = kv + 0.j
+    k = k + 0.j
 
     def binary_operator(a, b):
-        a_i, kv_i = a
-        a_j, kv_j = b
-        return a_j * a_i, a_j * kv_i + kv_j
+        a_i, k_i, kv_i = a
+        a_j, k_j, kv_j = b
 
-    a_kv = rearrange(a, '... n -> ... n 1 1')
+        return a_j * a_i, a_j[..., None] * k_i + k_j, a_j[..., None, None] * kv_i + kv_j
 
-    _, kv = associative_scan(binary_operator, (a_kv, kv))
+    _, k, kv = associative_scan(binary_operator, (a, k, kv))
 
     kv = kv.real
+    den = einsum('b n d, b n d -> b n', q, k.real)
 
-    if normalize:
-        k = k + 0.j
-        a_k = rearrange(a, '... n -> ... n 1')
+    kv = kv / rearrange(den, 'b n -> b n 1 1').clamp(min = eps)
 
-        _, k = associative_scan(binary_operator, (a_k, k))
-        den = einsum('b n d, b n d -> b n', q, k.real)
-
-        kv = kv / rearrange(den, 'b n -> b n 1 1').clamp(min = eps)
-
-    out = einsum('b n d, b n d e -> b n e', q, kv)
-    return out
+    return einsum('b n d, b n d e -> b n e', q, kv)
 
 class GateLoopedAttention(Module):
     def __init__(
@@ -231,7 +225,6 @@ class GateLoopedAttention(Module):
         checkpoint_gate_looped_attn = True,
         add_swish_gating = True,
         sub_ln = False,
-        second_taylor_qk = False,
         frac_gradient_state_transition = 0.9
     ):
         super().__init__()
@@ -240,8 +233,6 @@ class GateLoopedAttention(Module):
 
         dim_inner = default(dim_inner, dim)
         heads = default(heads, dim_inner)
-
-        self.second_taylor_qk = second_taylor_qk
 
         self.heads = heads
         assert (dim_inner % heads) == 0, f'dimension for gate looped attention {dim_inner} must be divisible by number of gate loop heads {heads}'
@@ -281,11 +272,8 @@ class GateLoopedAttention(Module):
 
         q, k, v = map(self.split_heads, (q, k, v))
 
-        _gate_loop_operator = gate_loop_operator
-
-        if self.second_taylor_qk:
-            q, k = map(second_taylor_expansion, (q, k))
-            _gate_loop_operator = partial(gate_loop_operator, normalize = True)
+        q, k = map(second_taylor_expansion, (q, k))
+        _gate_loop_operator = partial(gate_loop_operator, normalize = True)
 
         a = self.to_a(x)
         a = a * frac_gradient + a.detach() * (1 - frac_gradient)
@@ -335,7 +323,6 @@ class Transformer(Module):
         use_gate_looped_attn = True,
         gate_loop_heads = None,
         attn_add_swish_gating = True,
-        second_taylor_qk = False,
         dim_gate_looped_attn = None,
         attn_softmax_normalize = None,
         data_dependent_rel_pos = False,
@@ -365,7 +352,6 @@ class Transformer(Module):
                     dim_inner = dim_gate_looped_attn,
                     add_swish_gating = attn_add_swish_gating,
                     sub_ln = sub_ln,
-                    second_taylor_qk = second_taylor_qk,
                     checkpoint_gate_looped_attn = checkpoint_gate_looped_attn,
                     frac_gradient_state_transition = frac_gradient_state_transition
                 )
