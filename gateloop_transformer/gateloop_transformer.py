@@ -23,10 +23,6 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
-def complex_clamp(t, eps = 1e-5):
-    magnitude, phase = den.abs(), den.angle()
-    return torch.polar(magnitude.clamp(min = eps), phase)
-
 def Sequential(*modules):
     modules = list(filter(exists, modules))
     num_modules = len(modules)
@@ -212,17 +208,18 @@ def gate_loop_operator(q, k, v, a, normalize = False, eps = 1e-5):
 
     _, kv = associative_scan(binary_operator, (a_kv, kv))
 
+    kv = kv.real
+
     if normalize:
         k = k + 0.j
         a_k = rearrange(a, '... n -> ... n 1')
 
         _, k = associative_scan(binary_operator, (a_k, k))
-        den = einsum('b n d, b n d -> b n', q, k)
-        den = clamp_complex(den, eps = eps)
+        den = einsum('b n d, b n d -> b n', q, k.real)
 
-        kv = kv / rearrange(den, 'b n -> b n 1 1')
+        kv = kv / rearrange(den, 'b n -> b n 1 1').clamp(min = eps)
 
-    out = einsum('b n d, b n d e -> b n e', q, kv.real)
+    out = einsum('b n d, b n d e -> b n e', q, kv)
     return out
 
 class GateLoopedAttention(Module):
@@ -309,7 +306,7 @@ class GateLoopedAttention(Module):
 
         need_backwards = any([t.requires_grad for t in (q, k, v, a)])
 
-        fn = partial(checkpoint, gate_loop_operator, use_reentrant = False) if need_backwards and self.checkpoint_gate_looped_attn else gate_loop_operator
+        fn = partial(checkpoint, _gate_loop_operator, use_reentrant = False) if need_backwards and self.checkpoint_gate_looped_attn else gate_loop_operator
 
         out = fn(q, k, v, a)
 
