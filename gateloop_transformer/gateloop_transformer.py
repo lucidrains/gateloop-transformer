@@ -23,6 +23,10 @@ def exists(v):
 def default(v, d):
     return v if exists(v) else d
 
+def complex_clamp(t, eps = 1e-5):
+    magnitude, phase = den.abs(), den.angle()
+    return torch.polar(magnitude.clamp(min = eps), phase)
+
 def Sequential(*modules):
     modules = list(filter(exists, modules))
     num_modules = len(modules)
@@ -191,7 +195,7 @@ class CausalFullAttention(Module):
 
 # data gated linear attention with "gateloop operator"
 
-def gate_loop_operator(q, k, v, a, normalize = False):
+def gate_loop_operator(q, k, v, a, normalize = False, eps = 1e-5):
     """
     the pseudocode in section 3.2 of the paper
     """
@@ -213,9 +217,10 @@ def gate_loop_operator(q, k, v, a, normalize = False):
         a_k = rearrange(a, '... n -> ... n 1')
 
         _, k = associative_scan(binary_operator, (a_k, k))
-        qk_inv = 1. / einsum('b n d, b n d -> b n', q, k)
+        den = einsum('b n d, b n d -> b n', q, k)
+        den = clamp_complex(den, eps = eps)
 
-        kv = kv * rearrange(qk_inv, 'b n -> b n 1 1')
+        kv = kv / rearrange(den, 'b n -> b n 1 1')
 
     out = einsum('b n d, b n d e -> b n e', q, kv.real)
     return out
