@@ -111,6 +111,7 @@ class SimpleGateLoopLayer(Module):
         prenorm = True,
         use_heinsen = False,
         use_jax_associative_scan = False,
+        post_ln = False,
         reverse = False
     ):
         super().__init__()
@@ -135,6 +136,7 @@ class SimpleGateLoopLayer(Module):
         else:
             self.gate_loop_fn = gate_loop_operator
 
+        self.maybe_post_ln = nn.LayerNorm(dim) if post_ln else nn.Identity()
         self.split_heads = Rearrange('(b d) n 1 -> b n d', d = dim)
 
         self.reverse = reverse
@@ -155,6 +157,7 @@ class SimpleGateLoopLayer(Module):
         out, cache = self.gate_loop_fn(q, kv, a.sigmoid(), cache = cache)
 
         out = self.split_heads(out)
+        out = self.maybe_post_ln(out)
 
         if self.reverse:
             out = torch.flip(out, dims = (-2,))
