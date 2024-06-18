@@ -17,7 +17,14 @@ from gateloop_transformer.associative_scan import associative_scan
 def exists(v):
     return v is not None
 
-def abs_clamp_eps(t, eps = 1e-20):
+def default(v, d):
+    return v if exists(v) else d
+
+def eps_by_dtype(dtype):
+    return 1e-7 if dtype == torch.float16 else 1e-20
+
+def abs_clamp_eps(t, eps = None):
+    eps = default(eps, eps_by_dtype(t.dtype))
     sign = torch.sign(t)
     return sign * t.abs().clamp(min = eps)
 
@@ -25,9 +32,11 @@ def abs_clamp_eps(t, eps = 1e-20):
 # https://github.com/glassroom/heinsen_sequence
 # graciously shared to the world by Franz A. Heinsen in https://arxiv.org/abs/2311.06281 in October 2023
 
-def heinsen_associative_scan(a, kv, eps = 1e-20):
+def heinsen_associative_scan(a, kv, eps = None):
+    eps = default(eps, eps_by_dtype(a.dtype))
     log_a = a.clamp(min = eps).log()
-    log_kv = abs_clamp_eps(kv, eps = eps).to(dtype = torch.complex64).log()
+
+    log_kv = abs_clamp_eps(kv).to(dtype = torch.complex64).log()
 
     a_star = torch.cumsum(log_a, dim = 1)
     log_x0_plus_b_star = torch.logcumsumexp(log_kv - a_star, dim = 1)
