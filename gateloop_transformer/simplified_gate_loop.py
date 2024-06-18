@@ -55,7 +55,8 @@ def gate_loop_operator(q, kv, a, cache = None, heinsen = False):
         kv, kv_ps = pack([cache_kv, kv], 'b * d')
 
     if heinsen:
-        a, kv = heinsen_associative_scan(a, kv)
+        eps = 1e-7 if a.dtype == torch.float16 else 1e-20 
+        a, kv = heinsen_associative_scan(a, kv,eps)
     else:
         a, kv = associative_scan(binary_operator, (a, kv))
 
